@@ -1,0 +1,471 @@
+[
+  {
+    "city": "Andradas",
+    "uf": "MG",
+    "lat": -22.0681,
+    "lng": -46.5725,
+    "url": "https://andradas.portaldacidade.com/cameras-ao-vivo"
+  },
+  {
+    "city": "Brumadinho",
+    "uf": "MG",
+    "lat": -20.1433,
+    "lng": -44.1997,
+    "url": "https://brumadinho.portaldacidade.com/cameras-ao-vivo"
+  },
+  {
+    "city": "Brusque",
+    "uf": "SC",
+    "lat": -27.0979,
+    "lng": -48.9178,
+    "url": "https://brusqueaovivo.com.br/cameras"
+  },
+  {
+    "city": "Canoinhas",
+    "uf": "SC",
+    "lat": -26.1772,
+    "lng": -50.395,
+    "url": "https://canoinhas.portaldacidade.com/cameras-ao-vivo"
+  },
+  {
+    "city": "Foz do Iguaçu",
+    "uf": "PR",
+    "lat": -25.5469,
+    "lng": -54.5882,
+    "url": "https://foz.portaldacidade.com/cameras-ao-vivo"
+  },
+  {
+    "city": "Guaratuba",
+    "uf": "PR",
+    "lat": -25.8828,
+    "lng": -48.5748,
+    "url": "https://guaratuba.portaldacidade.com/cameras-ao-vivo"
+  },
+  {
+    "city": "Itapema",
+    "uf": "SC",
+    "lat": -27.0903,
+    "lng": -48.6114,
+    "url": "https://itapema.portaldacidade.com/cameras-ao-vivo"
+  },
+  {
+    "city": "Loanda",
+    "uf": "PR",
+    "lat": -22.9232,
+    "lng": -53.1372,
+    "url": "https://loanda.portaldacidade.com/cameras-ao-vivo"
+  },
+  {
+    "city": "Paranavaí",
+    "uf": "PR",
+    "lat": -23.0816,
+    "lng": -52.4617,
+    "url": "https://paranavai.portaldacidade.com/cameras-ao-vivo"
+  },
+  {
+    "city": "Rio das Pedras",
+    "uf": "SP",
+    "lat": -22.8417,
+    "lng": -47.606,
+    "url": "https://riodaspedras.portaldacidade.com/cameras-ao-vivo"
+  },
+  {
+    "city": "Santa Helena",
+    "uf": "PR",
+    "lat": -24.8583,
+    "lng": -54.3367,
+    "url": "https://santahelena.portaldacidade.com/cameras-ao-vivo"
+  },
+  {
+    "city": "União da Vitória",
+    "uf": "PR",
+    "lat": -26.2278,
+    "lng": -51.087,
+    "url": "https://uniaodavitoria.portaldacidade.com/cameras-ao-vivo"
+  },
+  {
+    "city": "Umuarama",
+    "uf": "PR",
+    "lat": -23.7656,
+    "lng": -53.325,
+    "url": "https://umuarama.portaldacidade.com/cameras-ao-vivo"
+  },
+  {
+    "city": "Bauru",
+    "uf": "SP",
+    "lat": -22.3147,
+    "lng": -49.0608,
+    "url": "https://bauru.portaldacidade.com/cameras-ao-vivo"
+  },
+  {
+    "city": "Guabiruba",
+    "uf": "SC",
+    "lat": -27.0864,
+    "lng": -48.9781,
+    "url": "https://brusqueaovivo.com.br/cameras/sc/guabiruba/mirante-santo-antonio"
+  },
+  {
+    "city": "Foz do Iguaçu — Ponte da Amizade",
+    "uf": "PR",
+    "lat": -25.5097,
+    "lng": -54.5942,
+    "url": "https://catve.com/ponte-da-amizade"
+  },
+  {
+    "city": "Foz do Iguaçu — Aduana",
+    "uf": "PR",
+    "lat": -25.514,
+    "lng": -54.59,
+    "url": "https://catve.com/aduana"
+  },
+  {
+    "city": "Foz do Iguaçu — Centro",
+    "uf": "PR",
+    "lat": -25.542,
+    "lng": -54.584,
+    "url": "https://catve.com/foz-centro"
+  },
+  {
+    "city": "Foz do Iguaçu — Av. Costa e Silva (BR-277)",
+    "uf": "PR",
+    "lat": -25.523,
+    "lng": -54.558,
+    "url": "https://catve.com/foz-br-277"
+  },
+  {
+    "city": "Foz do Iguaçu — Vista geral",
+    "uf": "PR",
+    "lat": -25.53,
+    "lng": -54.575,
+    "url": "https://camerasdomundo.com/foz-do-iguacu-ao-vivo/"
+  },
+  {
+    "city": "Cascavel — Centro",
+    "uf": "PR",
+    "lat": -24.9558,
+    "lng": -53.4552,
+    "url": "https://catve.com/cascavel-centro"
+  },
+  {
+    "city": "Cascavel — Trevo Cataratas",
+    "uf": "PR",
+    "lat": -24.989,
+    "lng": -53.45,
+    "url": "https://catve.com/trevo-cataratas"
+  },
+  {
+    "city": "Cascavel — Autódromo",
+    "uf": "PR",
+    "lat": -24.97,
+    "lng": -53.49,
+    "url": "https://catve.com/autodromo"
+  },
+  {
+    "city": "Cascavel — Ciro Nardi",
+    "uf": "PR",
+    "lat": -24.95,
+    "lng": -53.465,
+    "url": "https://catve.com/ciro-nardi"
+  },
+  {
+    "city": "Cascavel — Centro FAG",
+    "uf": "PR",
+    "lat": -24.949,
+    "lng": -53.487,
+    "url": "https://catve.com/fag"
+  },
+  {
+    "city": "Cascavel — Av. das Torres",
+    "uf": "PR",
+    "lat": -24.9385,
+    "lng": -53.469,
+    "url": "https://catve.com/av-das-torres"
+  },
+  {
+    "city": "Cascavel — Praça da Bíblia",
+    "uf": "PR",
+    "lat": -24.9575,
+    "lng": -53.461,
+    "url": "https://catve.com/pracabiblia"
+  },
+  {
+    "city": "Cascavel — Praça do Migrante",
+    "uf": "PR",
+    "lat": -24.954,
+    "lng": -53.459,
+    "url": "https://catve.com/migrante"
+  },
+  {
+    "city": "Toledo — Lago",
+    "uf": "PR",
+    "lat": -24.724,
+    "lng": -53.738,
+    "url": "https://catve.com/toledo"
+  },
+  {
+    "city": "Toledo — Centro",
+    "uf": "PR",
+    "lat": -24.7136,
+    "lng": -53.7433,
+    "url": "https://catve.com/toledo-centro"
+  },
+  {
+    "city": "Marechal Cândido Rondon — Centro",
+    "uf": "PR",
+    "lat": -24.557,
+    "lng": -54.057,
+    "url": "https://catve.com/marechal"
+  },
+  {
+    "city": "Londrina — Centro",
+    "uf": "PR",
+    "lat": -23.3045,
+    "lng": -51.1696,
+    "url": "https://catve.com/londrina"
+  },
+  {
+    "city": "Guaíra — Ponte Ayrton Senna",
+    "uf": "PR",
+    "lat": -24.061,
+    "lng": -54.259,
+    "url": "https://catve.com/ponte-airton-senna"
+  },
+  {
+    "city": "Goioerê — Centro",
+    "uf": "PR",
+    "lat": -24.1833,
+    "lng": -53.0278,
+    "url": "https://camerasdomundo.com/centro-goioere/"
+  },
+  {
+    "city": "Curitiba — Vista panorâmica",
+    "uf": "PR",
+    "lat": -25.4284,
+    "lng": -49.2733,
+    "url": "https://camerasdomundo.com/panoramica-curitiba-ao-vivo/"
+  },
+  {
+    "city": "São José dos Pinhais — Aeroporto Afonso Pena",
+    "uf": "PR",
+    "lat": -25.5285,
+    "lng": -49.1758,
+    "url": "https://camerasdomundo.com/aeroporto-internacional-afonso-pena/"
+  },
+  {
+    "city": "Guaratuba — Praia Central",
+    "uf": "PR",
+    "lat": -25.88,
+    "lng": -48.57,
+    "url": "https://camerasdomundo.com/praia-central-guaratuba-ao-vivo/"
+  },
+  {
+    "city": "Matinhos — Praia de Caiobá",
+    "uf": "PR",
+    "lat": -25.85,
+    "lng": -48.543,
+    "url": "https://camerasdomundo.com/praia-caioba-matinhos-ao-vivo/"
+  },
+  {
+    "city": "Pontal do Paraná — Praia de Leste",
+    "uf": "PR",
+    "lat": -25.72,
+    "lng": -48.44,
+    "url": "https://camerasdomundo.com/praia-de-leste-pontal-do-parana-ao-vivo/"
+  },
+  {
+    "city": "Rio Negro — Centro",
+    "uf": "PR",
+    "lat": -26.103,
+    "lng": -49.798,
+    "url": "https://camerasdomundo.com/rio-negro/"
+  },
+  {
+    "city": "Umuarama — Praça Miguel Rossafa",
+    "uf": "PR",
+    "lat": -23.765,
+    "lng": -53.32,
+    "url": "https://camerasdomundo.com/umuarama-ao-vivo/"
+  },
+  {
+    "city": "Arapongas — Aeroporto",
+    "uf": "PR",
+    "lat": -23.475,
+    "lng": -51.495,
+    "url": "https://camerasdomundo.com/aeroporto-arapongas-ao-vivo/"
+  },
+  {
+    "city": "Apucarana — Lago Jaboti",
+    "uf": "PR",
+    "lat": -23.564,
+    "lng": -51.475,
+    "url": "https://camerasdomundo.com/lago-jaboti-apucarana/"
+  },
+  {
+    "city": "Apucarana — Av. Curitiba",
+    "uf": "PR",
+    "lat": -23.552,
+    "lng": -51.46,
+    "url": "https://camerasdomundo.com/avenida-curitiba-apucarana-parana/"
+  },
+  {
+    "city": "Apucarana — Praça Rui Barbosa",
+    "uf": "PR",
+    "lat": -23.551,
+    "lng": -51.4614,
+    "url": "https://camerasdomundo.com/praca-rui-barbosa-apucarana-parana/"
+  },
+  {
+    "city": "Apucarana — Praça Mauá",
+    "uf": "PR",
+    "lat": -23.55,
+    "lng": -51.464,
+    "url": "https://camerasdomundo.com/praca-visconde-de-maua-parana/"
+  },
+  {
+    "city": "Apucarana — Mirante Parque Bela Vista",
+    "uf": "PR",
+    "lat": -23.558,
+    "lng": -51.454,
+    "url": "https://camerasdomundo.com/parque-bela-vista-apucarana-parana/"
+  },
+  {
+    "city": "Apucarana — Parque da Raposa",
+    "uf": "PR",
+    "lat": -23.545,
+    "lng": -51.47,
+    "url": "https://camerasdomundo.com/parque-da-raposa-apucarana-parana/"
+  },
+  {
+    "city": "Apucarana — Espaço das Feiras",
+    "uf": "PR",
+    "lat": -23.54,
+    "lng": -51.45,
+    "url": "https://camerasdomundo.com/espaco-das-feiras-apucarana-ao-vivo/"
+  },
+  {
+    "city": "Apucarana — Rua Ouro Branco",
+    "uf": "PR",
+    "lat": -23.553,
+    "lng": -51.458,
+    "url": "https://camerasdomundo.com/rua-ouro-branco-apucarana-parana/"
+  },
+  {
+    "city": "Apucarana — Av. Cristiano Kussmaul",
+    "uf": "PR",
+    "lat": -23.547,
+    "lng": -51.468,
+    "url": "https://camerasdomundo.com/avenida-cristiano-kussmaul-apucarana-ao-vivo/"
+  },
+  {
+    "city": "Apucarana — Entrada sentido Maringá",
+    "uf": "PR",
+    "lat": -23.56,
+    "lng": -51.49,
+    "url": "https://camerasdomundo.com/entrada-apucarana-maringa-ao-vivo/"
+  },
+  {
+    "city": "Apucarana — Entrada sentido Londrina",
+    "uf": "PR",
+    "lat": -23.54,
+    "lng": -51.43,
+    "url": "https://camerasdomundo.com/estrada-apucarana-londrina-ao-vivo/"
+  },
+  {
+    "city": "Ponta Grossa — Clima ao Vivo",
+    "uf": "PR",
+    "lat": -25.0916,
+    "lng": -50.1668,
+    "url": "https://www.climaaovivo.com.br/cidades/PR?cidade=Ponta%20Grossa"
+  },
+  {
+    "city": "Guarapuava — Clima ao Vivo",
+    "uf": "PR",
+    "lat": -25.3907,
+    "lng": -51.4628,
+    "url": "https://www.climaaovivo.com.br/cidades/PR?cidade=Guarapuava"
+  },
+  {
+    "city": "Telêmaco Borba — Clima ao Vivo",
+    "uf": "PR",
+    "lat": -24.3245,
+    "lng": -50.6158,
+    "url": "https://www.climaaovivo.com.br/cidades/PR?cidade=Tel%C3%AAmaco%20Borba"
+  },
+  {
+    "city": "Campo Grande — Clima ao Vivo",
+    "uf": "MS",
+    "lat": -20.4697,
+    "lng": -54.6201,
+    "url": "https://www.climaaovivo.com.br/cidades/MS?cidade=Campo%20Grande"
+  },
+  {
+    "city": "Maracaju — Clima ao Vivo",
+    "uf": "MS",
+    "lat": -21.6105,
+    "lng": -55.1678,
+    "url": "https://www.climaaovivo.com.br/cidades/MS?cidade=Maracaju"
+  },
+  {
+    "city": "Bonito — Clima ao Vivo",
+    "uf": "MS",
+    "lat": -21.1261,
+    "lng": -56.4836,
+    "url": "https://www.climaaovivo.com.br/cidades/MS?cidade=Bonito"
+  },
+  {
+    "city": "Cerqueira César — Clima ao Vivo",
+    "uf": "SP",
+    "lat": -23.0386,
+    "lng": -49.165,
+    "url": "https://www.climaaovivo.com.br/cidades/SP?cidade=Cerqueira%20C%C3%A9sar"
+  },
+  {
+    "city": "Olímpia — Clima ao Vivo",
+    "uf": "SP",
+    "lat": -20.7364,
+    "lng": -48.9147,
+    "url": "https://www.climaaovivo.com.br/cidades/SP?cidade=Ol%C3%ADmpia"
+  },
+  {
+    "city": "Piracicaba — Clima ao Vivo",
+    "uf": "SP",
+    "lat": -22.7253,
+    "lng": -47.6492,
+    "url": "https://www.climaaovivo.com.br/cidades/SP?cidade=Piracicaba"
+  },
+  {
+    "city": "Sorocaba — Clima ao Vivo",
+    "uf": "SP",
+    "lat": -23.5015,
+    "lng": -47.4526,
+    "url": "https://www.climaaovivo.com.br/cidades/SP?cidade=Sorocaba"
+  },
+  {
+    "city": "Santos — Clima ao Vivo",
+    "uf": "SP",
+    "lat": -23.9608,
+    "lng": -46.3336,
+    "url": "https://www.climaaovivo.com.br/cidades/SP?cidade=Santos"
+  },
+  {
+    "city": "Ubatuba — Clima ao Vivo",
+    "uf": "SP",
+    "lat": -23.4336,
+    "lng": -45.0838,
+    "url": "https://www.climaaovivo.com.br/cidades/SP?cidade=Ubatuba"
+  },
+  {
+    "city": "Florianópolis — Clima ao Vivo",
+    "uf": "SC",
+    "lat": -27.5954,
+    "lng": -48.548,
+    "url": "https://www.climaaovivo.com.br/cidades/SC?cidade=Florian%C3%B3polis"
+  },
+  {
+    "city": "Balneário Camboriú — Clima ao Vivo",
+    "uf": "SC",
+    "lat": -26.9906,
+    "lng": -48.6348,
+    "url": "https://www.climaaovivo.com.br/cidades/SC?cidade=Balne%C3%A1rio%20Cambori%C3%BA"
+  }
+]

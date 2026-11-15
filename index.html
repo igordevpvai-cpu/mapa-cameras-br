@@ -1,0 +1,2040 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#102b3f">
+<script>
+(function () {
+  var t = null;
+  try { t = localStorage.getItem("mapa-tema"); } catch (e) {}
+  if (t !== "dark" && t !== "light") t = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  document.documentElement.dataset.theme = t;
+})();
+</script>
+<title>Câmeras ao vivo — Brasil</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
+
+<style>
+:root {
+  --navy: #102b3f;
+  --teal: #176b87;
+  --teal-d: #0f526a;
+  --red: #e44d43;
+  --ink: #18364a;
+  --muted: #5b7384;
+  --glass: rgba(255, 255, 255, .72);
+  --glass-strong: rgba(255, 255, 255, .88);
+  --line: rgba(16, 43, 63, .10);
+  --fill: rgba(16, 43, 63, .06);
+  --fill-h: rgba(16, 43, 63, .11);
+  --shadow: 0 1px 0 rgba(255, 255, 255, .75) inset, 0 12px 40px rgba(16, 43, 63, .18), 0 2px 8px rgba(16, 43, 63, .08);
+  --ease: cubic-bezier(.2, .8, .2, 1);
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, system-ui, sans-serif;
+  --peek: 150px;
+  --title: #102b3f;
+  --chip-on: #102b3f;
+  --tip-bg: #102b3f;
+  --uf-bg: rgba(23, 107, 135, .13);
+  --uf-fg: #0f526a;
+  --sel: rgba(23, 107, 135, .14);
+  --handle: rgba(16, 43, 63, .25);
+  --danger: #c0362d;
+  --edge: rgba(255, 255, 255, .6);
+  --attr-bg: rgba(255, 255, 255, .65);
+  --toast-bg: rgba(16, 43, 63, .9);
+  --map-bg: #dce8ed;
+  --state-line: rgba(16, 43, 63, .30);
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ink: #e6eef3;
+  --muted: #9db1bf;
+  --title: #f2f7fa;
+  --teal: #1f7f9e;
+  --teal-d: #2a93b5;
+  --glass: rgba(22, 36, 48, .72);
+  --glass-strong: rgba(22, 36, 48, .9);
+  --line: rgba(255, 255, 255, .12);
+  --fill: rgba(255, 255, 255, .08);
+  --fill-h: rgba(255, 255, 255, .14);
+  --shadow: 0 1px 0 rgba(255, 255, 255, .08) inset, 0 12px 40px rgba(0, 0, 0, .5), 0 2px 8px rgba(0, 0, 0, .3);
+  --chip-on: #2a8fb0;
+  --tip-bg: #0b1722;
+  --uf-bg: rgba(90, 190, 220, .18);
+  --uf-fg: #9fd8ea;
+  --sel: rgba(90, 190, 220, .22);
+  --handle: rgba(255, 255, 255, .3);
+  --danger: #ff8f86;
+  --edge: rgba(255, 255, 255, .14);
+  --attr-bg: rgba(22, 36, 48, .7);
+  --toast-bg: rgba(48, 66, 82, .92);
+  --map-bg: #0e1a24;
+  --state-line: rgba(255, 255, 255, .20);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  margin: 0;
+  font-family: var(--font);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body { background: var(--map-bg); overflow: hidden; }
+
+button { font-family: inherit; }
+:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+
+#map { position: fixed; inset: 0; background: var(--map-bg); }
+
+/* divisas entre estados: mais sutis que a fronteira de país do mapa-base */
+.state-border { stroke: var(--state-line); stroke-width: .8px; fill: none; pointer-events: none; }
+
+/* ---------- Painel (material translúcido) ---------- */
+
+.panel {
+  position: fixed;
+  z-index: 500;
+  display: flex;
+  flex-direction: column;
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  backdrop-filter: blur(28px) saturate(180%);
+  border: 1px solid var(--edge);
+  box-shadow: var(--shadow);
+}
+
+@media (min-width: 701px) {
+  .panel { left: 12px; top: 12px; bottom: 12px; width: 348px; border-radius: 22px; }
+}
+
+@media (max-width: 700px) {
+  .panel {
+    left: 0; right: 0; bottom: 0;
+    height: 88vh; height: 88dvh;
+    border-radius: 22px 22px 0 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .leaflet-bottom { bottom: var(--peek); transition: bottom .3s var(--ease); }
+}
+
+.grab { padding: 16px 16px 4px; }
+
+.handle { display: none; }
+
+@media (max-width: 700px) {
+  .grab { padding-top: 0; touch-action: none; cursor: grab; }
+  .handle { display: flex; justify-content: center; align-items: center; height: 22px; }
+  .handle::before { content: ""; width: 38px; height: 5px; border-radius: 3px; background: var(--handle); }
+}
+
+.panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+
+h1 {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.1;
+  font-weight: 700;
+  letter-spacing: -.022em;
+  color: var(--title);
+}
+
+.count { margin-top: 3px; font-size: 13px; letter-spacing: .005em; color: var(--muted); }
+
+@media (max-width: 700px) { #collapse svg { transform: rotate(-90deg); } }
+
+.tools { display: flex; gap: 8px; padding: 10px 14px 8px; }
+
+.search-wrap { position: relative; flex: 1; min-width: 0; }
+.search-wrap svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+
+.search {
+  width: 100%; height: 40px; padding: 0 12px 0 35px;
+  border: 0; border-radius: 12px; background: var(--fill);
+  font: 400 16px var(--font); color: var(--ink);
+  transition: box-shadow .12s;
+}
+.search:focus { outline: none; box-shadow: 0 0 0 2px var(--teal); }
+.search::placeholder { color: var(--muted); }
+
+.add-btn {
+  flex: none; height: 40px; padding: 0 14px 0 11px;
+  display: flex; align-items: center; gap: 6px;
+  border: 0; border-radius: 12px; background: var(--teal); color: #fff;
+  font-size: 14px; font-weight: 600; cursor: pointer;
+  transition: background .15s, transform .1s ease-out;
+}
+.add-btn:hover { background: var(--teal-d); }
+.add-btn:active { transform: scale(.96); }
+
+.chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 14px 10px; }
+
+@media (max-width: 700px) {
+  .chips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .chips::-webkit-scrollbar { display: none; }
+}
+
+.chip {
+  flex: none; height: 30px; padding: 0 11px;
+  border: 0; border-radius: 999px; background: var(--fill); color: var(--ink);
+  font-size: 13px; font-weight: 600; cursor: pointer;
+  transition: background .15s, color .15s, transform .1s ease-out;
+}
+.chip small { margin-left: 5px; font-size: 12px; font-weight: 500; color: var(--muted); transition: color .15s; }
+.chip:hover { background: var(--fill-h); }
+.chip:active { transform: scale(.96); }
+.chip.active { background: var(--chip-on); color: #fff; }
+.chip.active small { color: rgba(255, 255, 255, .7); }
+
+/* ---------- Lista ---------- */
+
+.list-wrap {
+  flex: 1; min-height: 0;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 10px, #000 calc(100% - 18px), transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 10px, #000 calc(100% - 18px), transparent 100%);
+}
+
+.list { height: 100%; overflow-y: auto; overscroll-behavior: contain; padding: 8px 8px 20px; }
+
+.row { display: flex; align-items: center; border-radius: 12px; transition: background .12s; }
+.row:hover { background: var(--fill); }
+.row.selected { background: var(--sel); }
+
+.item {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px;
+  padding: 9px 8px; border: 0; border-radius: 12px; background: none;
+  font: inherit; color: var(--ink); text-align: left; cursor: pointer;
+  transition: transform .1s ease-out;
+}
+.item:active { transform: scale(.985); }
+
+.uf {
+  flex: none; width: 36px; padding: 4px 0; border-radius: 8px; text-align: center;
+  font-size: 11px; font-weight: 700; letter-spacing: .02em;
+  background: var(--uf-bg); color: var(--uf-fg);
+}
+
+.name { font-size: 15px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.row-acts { display: flex; padding-right: 4px; }
+
+@media (hover: hover) {
+  .row-acts { opacity: 0; transition: opacity .12s; }
+  .row:hover .row-acts, .row:focus-within .row-acts, .row.selected .row-acts { opacity: 1; }
+}
+
+.icon-btn {
+  width: 34px; height: 34px; display: grid; place-items: center;
+  border: 0; border-radius: 10px; background: none; color: var(--muted); cursor: pointer;
+  transition: background .12s, color .12s, transform .1s ease-out;
+}
+.icon-btn:hover { background: var(--fill-h); color: var(--ink); }
+.icon-btn:active { transform: scale(.92); }
+.icon-btn.del:hover { background: rgba(228, 77, 67, .15); color: var(--danger); }
+
+.empty { padding: 28px 16px; text-align: center; font-size: 14px; color: var(--muted); }
+.empty p { margin: 0 0 12px; }
+
+.btn {
+  height: 40px; padding: 0 16px; border: 0; border-radius: 12px;
+  background: var(--fill); color: var(--ink); font-size: 14px; font-weight: 600; cursor: pointer;
+  transition: background .15s, transform .1s ease-out;
+}
+.btn:hover { background: var(--fill-h); }
+.btn:active { transform: scale(.97); }
+.btn.primary { background: var(--teal); color: #fff; }
+.btn.primary:hover { background: var(--teal-d); }
+.btn:disabled { opacity: .6; cursor: default; }
+
+
+/* ---------- Relógio e tema ---------- */
+
+.hud {
+  position: fixed; z-index: 500; top: calc(12px + env(safe-area-inset-top, 0px)); left: 50%;
+  transform: translateX(-50%); display: flex; align-items: center; gap: 12px;
+  padding: 5px 5px 5px 18px; border-radius: 999px;
+  background: var(--glass); border: 1px solid var(--edge); box-shadow: var(--shadow);
+  -webkit-backdrop-filter: blur(24px) saturate(180%); backdrop-filter: blur(24px) saturate(180%);
+}
+@media (min-width: 701px) {
+  .hud { left: calc(360px + (100vw - 360px) / 2); transition: left .4s var(--ease); }
+  body.collapsed .hud { left: 50%; }
+}
+.clock { display: flex; flex-direction: column; line-height: 1.15; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.clock-time { font-size: 17px; font-weight: 700; letter-spacing: -.01em; color: var(--title); }
+.clock-date { font-size: 11.5px; letter-spacing: .01em; color: var(--muted); }
+.theme-btn { width: 40px; height: 40px; border-radius: 50%; background: var(--fill); }
+
+/* ---------- Rodapé: exportar / restaurar ---------- */
+
+.footer { display: flex; gap: 8px; padding: 6px 14px 14px; }
+.footer .btn { flex: 1; height: 38px; display: flex; align-items: center; justify-content: center; gap: 7px; font-size: 13px; }
+
+/* ---------- Botão flutuante (painel recolhido) ---------- */
+
+.fab {
+  position: fixed; z-index: 500; left: 12px; top: 12px; width: 48px; height: 48px;
+  display: grid; place-items: center; border: 1px solid var(--edge); border-radius: 16px;
+  background: var(--glass); color: var(--title); cursor: pointer; box-shadow: var(--shadow);
+  -webkit-backdrop-filter: blur(24px) saturate(180%); backdrop-filter: blur(24px) saturate(180%);
+  opacity: 0; transform: scale(.9); pointer-events: none;
+  transition: opacity .2s, transform .25s var(--ease);
+}
+body.collapsed .fab { opacity: 1; transform: none; pointer-events: auto; }
+body.collapsed .fab:active { transform: scale(.94); }
+@media (max-width: 700px) { .fab { top: auto; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); } }
+
+/* ---------- Controles do Leaflet ---------- */
+
+.leaflet-control-attribution a { color: var(--teal) !important; }
+
+.leaflet-control-zoom {
+  border: 0 !important; border-radius: 14px; overflow: hidden;
+  background: var(--glass); box-shadow: var(--shadow);
+  -webkit-backdrop-filter: blur(24px) saturate(180%); backdrop-filter: blur(24px) saturate(180%);
+}
+.leaflet-control-zoom a {
+  width: 40px !important; height: 40px !important; line-height: 40px !important;
+  background: transparent !important; color: var(--ink) !important; border: 0 !important; font-size: 20px;
+  transition: background .12s;
+}
+.leaflet-control-zoom a:hover { background: var(--fill-h) !important; }
+.leaflet-control-zoom a + a { border-top: 1px solid var(--line) !important; }
+
+.leaflet-control-attribution {
+  background: var(--attr-bg) !important; color: var(--muted) !important; font-size: 10px !important;
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+}
+
+/* ---------- Marcadores ---------- */
+
+.camera-pin {
+  width: 34px; height: 34px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg);
+  background: linear-gradient(135deg, #f0645a, #d9403a); border: 3px solid #fff;
+  box-shadow: 0 3px 10px rgba(16, 43, 63, .35);
+  display: flex; align-items: center; justify-content: center;
+  transition: transform .14s var(--ease), box-shadow .14s;
+}
+.camera-pin span { transform: rotate(45deg); color: #fff; font-size: 13px; margin-left: 1px; }
+
+.pin-wrap:hover .camera-pin, .pin-wrap.hl .camera-pin, .pin-wrap.sel .camera-pin { transform: rotate(-45deg) scale(1.14); }
+.pin-wrap:active .camera-pin { transform: rotate(-45deg) scale(.95); }
+.pin-wrap.sel .camera-pin, .pin-wrap.hl .camera-pin { box-shadow: 0 0 0 5px rgba(228, 77, 67, .28), 0 3px 10px rgba(16, 43, 63, .35); }
+
+.cluster { background: rgba(228, 77, 67, .18); border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+.cluster div {
+  width: 34px; height: 34px; border-radius: 50%;
+  background: linear-gradient(135deg, #f0645a, #d9403a); border: 3px solid #fff; color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700; box-shadow: 0 3px 10px rgba(16, 43, 63, .35);
+  transition: transform .14s var(--ease);
+}
+.cluster:hover div { transform: scale(1.1); }
+.cluster:active div { transform: scale(.95); }
+
+.leaflet-tooltip.glass-tip {
+  background: var(--tip-bg); color: #fff; border: 0; border-radius: 8px; padding: 4px 9px;
+  font: 600 12px var(--font); letter-spacing: .01em; box-shadow: 0 4px 14px rgba(16, 43, 63, .3);
+}
+.leaflet-tooltip-top.glass-tip::before { border-top-color: var(--tip-bg); }
+
+/* ---------- Balão do marcador ---------- */
+
+.glass-popup .leaflet-popup-content-wrapper {
+  padding: 0; border-radius: 18px; border: 1px solid var(--edge);
+  background: var(--glass-strong); box-shadow: var(--shadow);
+  -webkit-backdrop-filter: blur(24px) saturate(180%); backdrop-filter: blur(24px) saturate(180%);
+  transform-origin: 50% 100%; animation: popIn .22s var(--ease);
+}
+.glass-popup .leaflet-popup-content { margin: 14px; min-width: 210px; font-family: var(--font); }
+.glass-popup .leaflet-popup-tip { background: var(--glass-strong); box-shadow: none; }
+
+@keyframes popIn { from { opacity: 0; transform: scale(.92); } }
+@keyframes fade { from { opacity: 0; } }
+@keyframes fadeOut { to { opacity: 0; } }
+
+.pop-title { font-size: 18px; font-weight: 700; letter-spacing: -.015em; color: var(--title); }
+.pop-sub { margin: 2px 0 4px; font-size: 13px; color: var(--muted); }
+.pop-time { margin: 0 0 12px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.pop-open {
+  display: flex; align-items: center; justify-content: center; gap: 6px; height: 44px;
+  border-radius: 12px; background: var(--teal); color: #fff !important; text-decoration: none;
+  font-size: 14px; font-weight: 600; transition: background .15s, transform .1s ease-out;
+}
+.pop-open:hover { background: var(--teal-d); }
+.pop-open:active { transform: scale(.97); }
+
+.pop-acts { display: flex; gap: 6px; margin-top: 6px; }
+.pop-act {
+  flex: 1; height: 38px; display: flex; align-items: center; justify-content: center; gap: 6px;
+  border: 0; border-radius: 10px; background: var(--fill); color: var(--ink);
+  font-size: 13px; font-weight: 600; cursor: pointer; transition: background .12s, transform .1s ease-out;
+}
+.pop-act:hover { background: var(--fill-h); }
+.pop-act:active { transform: scale(.97); }
+.pop-act.del { color: var(--danger); }
+.pop-act.del:hover { background: rgba(228, 77, 67, .15); }
+
+/* ---------- Aviso (toast) e modo "escolher no mapa" ---------- */
+
+.toast {
+  position: fixed; z-index: 2000; left: 50%; top: calc(70px + env(safe-area-inset-top, 0px));
+  display: flex; align-items: center; gap: 14px; max-width: calc(100vw - 24px);
+  padding: 10px 10px 10px 18px; border-radius: 999px;
+  background: var(--toast-bg); color: #fff; font-size: 14px;
+  -webkit-backdrop-filter: blur(20px) saturate(160%); backdrop-filter: blur(20px) saturate(160%);
+  box-shadow: 0 8px 28px rgba(16, 43, 63, .35);
+  opacity: 0; transform: translate(-50%, -16px);
+  transition: transform .3s var(--ease), opacity .2s;
+}
+.toast.in { opacity: 1; transform: translate(-50%, 0); }
+.toast button {
+  flex: none; padding: 8px 13px; border: 0; border-radius: 999px;
+  background: rgba(255, 255, 255, .18); color: #fff; font-size: 13px; font-weight: 600; cursor: pointer;
+  transition: background .12s, transform .1s ease-out;
+}
+.toast button:hover { background: rgba(255, 255, 255, .28); }
+.toast button:active { transform: scale(.95); }
+
+.pick-banner {
+  position: fixed; z-index: 2000; left: 50%; top: calc(70px + env(safe-area-inset-top, 0px));
+  transform: translateX(-50%); display: none; align-items: center; gap: 12px;
+  padding: 8px 8px 8px 16px; border-radius: 999px; font-size: 14px; color: #fff;
+  background: var(--toast-bg); box-shadow: 0 8px 28px rgba(16, 43, 63, .35);
+  -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
+}
+.pick-banner.on { display: flex; }
+.pick-banner .btn { height: 34px; padding: 0 12px; background: rgba(255, 255, 255, .18); color: #fff; }
+body.picking #map { cursor: crosshair; }
+
+/* ---------- Formulário ---------- */
+
+dialog {
+  width: min(440px, calc(100vw - 24px)); max-height: calc(100vh - 24px); max-height: calc(100dvh - 24px);
+  padding: 0; border: 0; border-radius: 22px; color: var(--ink); font-family: var(--font);
+  background: var(--glass-strong); box-shadow: var(--shadow); overflow: auto;
+  -webkit-backdrop-filter: blur(30px) saturate(180%); backdrop-filter: blur(30px) saturate(180%);
+}
+dialog[open] { animation: dlgIn .3s var(--ease); }
+dialog.closing { animation: dlgOut .16s ease-in forwards; }
+dialog::backdrop {
+  background: rgba(16, 43, 63, .32);
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  animation: fade .25s ease;
+}
+dialog.closing::backdrop { animation: fadeOut .16s ease forwards; }
+
+@keyframes dlgIn { from { opacity: 0; transform: scale(.94); } }
+@keyframes dlgOut { to { opacity: 0; transform: scale(.96); } }
+
+.form { display: flex; flex-direction: column; gap: 14px; padding: 22px; }
+.form h2 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -.02em; color: var(--title); }
+
+.field { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; }
+.field input, .field select {
+  height: 44px; padding: 0 12px; border: 0; border-radius: 12px; background: var(--fill);
+  font: 400 16px var(--font); color: var(--ink); transition: box-shadow .12s;
+}
+.field input:focus, .field select:focus { outline: none; box-shadow: 0 0 0 2px var(--teal); }
+.field [aria-invalid="true"] { box-shadow: 0 0 0 2px var(--red); }
+
+.cols { display: grid; grid-template-columns: 96px 1fr; gap: 10px; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.tool-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.tool-row .btn { height: 36px; font-size: 13px; }
+.msg { min-height: 18px; margin: -4px 0; font-size: 13px; color: var(--danger); }
+.actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+/* ---------- Acessibilidade ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .glass-popup .leaflet-popup-content-wrapper, dialog[open] { animation: fade .2s; }
+  dialog.closing { animation: fadeOut .12s forwards; }
+  .toast, .toast.in { transform: translate(-50%, 0); }
+  .fab, body.collapsed .fab { transform: none; }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  :root { --glass: #fff; --glass-strong: #fff; }
+  :root[data-theme="dark"] { --glass: #17232d; --glass-strong: #17232d; }
+  .panel, .fab, .hud, dialog, dialog::backdrop, .leaflet-control-zoom, .glass-popup .leaflet-popup-content-wrapper,
+  .toast, .pick-banner, .leaflet-control-attribution { -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+
+@media (prefers-contrast: more) {
+  :root { --glass: #fff; --glass-strong: #fff; --line: var(--ink); --fill: rgba(16, 43, 63, .12); }
+  :root[data-theme="dark"] { --glass: #17232d; --glass-strong: #17232d; --fill: rgba(255, 255, 255, .16); }
+  .panel, .fab, .hud, dialog, .glass-popup .leaflet-popup-content-wrapper { border: 1px solid var(--ink); }
+  .count { color: var(--ink); }
+}
+</style>
+</head>
+
+<body>
+
+<aside class="panel" id="sidebar" aria-label="Lista de câmeras">
+  <div class="grab" id="grab">
+    <div class="handle" id="handle" role="button" tabindex="0" aria-label="Expandir ou recolher a lista"></div>
+    <div class="panel-head">
+      <div>
+        <h1>Câmeras ao vivo</h1>
+        <div class="count" id="count" aria-live="polite"></div>
+      </div>
+      <button class="icon-btn collapse" id="collapse" type="button" data-nodrag title="Recolher lista" aria-label="Recolher lista">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="tools" id="tools">
+    <div class="search-wrap">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <input class="search" id="search" type="search" placeholder="Buscar cidade" aria-label="Buscar cidade" autocomplete="off">
+    </div>
+    <button class="add-btn" id="addBtn" type="button">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      Adicionar
+    </button>
+  </div>
+
+  <div class="chips" id="chips" role="group" aria-label="Filtrar por estado"></div>
+
+  <div class="list-wrap"><div class="list" id="list"></div></div>
+
+  <div class="footer">
+    <button class="btn" id="exportBtn" type="button" title="Salvar a lista atual em um arquivo">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>
+      Exportar
+    </button>
+    <button class="btn" id="importBtn" type="button" title="Restaurar a lista de um arquivo salvo">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3"/><path d="M7 8l5-5 5 5"/><path d="M5 21h14"/></svg>
+      Restaurar
+    </button>
+    <input type="file" id="importFile" accept=".json,application/json" hidden>
+  </div>
+</aside>
+
+<button class="fab" id="fab" type="button" title="Abrir lista" aria-label="Abrir lista de câmeras">
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></svg>
+</button>
+
+<div class="hud" id="hud">
+  <div class="clock" role="timer" aria-label="Data e hora atuais">
+    <span class="clock-time" id="clockTime"></span>
+    <span class="clock-date" id="clockDate"></span>
+  </div>
+  <button class="icon-btn theme-btn" id="themeBtn" type="button"></button>
+</div>
+
+<main id="map" aria-label="Mapa de câmeras"></main>
+
+<div class="pick-banner" id="pickBanner"><span>Toque no mapa para definir a posição</span><button class="btn" id="pickCancel" type="button">Cancelar</button></div>
+
+<dialog id="dlg" aria-labelledby="dlgTitle">
+  <form class="form" id="form" method="dialog" novalidate>
+    <h2 id="dlgTitle">Adicionar câmera</h2>
+    <div class="cols">
+      <label class="field">Estado <select id="fUF"></select></label>
+      <label class="field">Cidade ou nome <input id="fCity" type="text" autocomplete="off"></label>
+    </div>
+    <label class="field">Link da câmera <input id="fUrl" type="text" inputmode="url" placeholder="https://..." autocomplete="off"></label>
+    <div class="two">
+      <label class="field">Latitude <input id="fLat" type="text" inputmode="decimal" autocomplete="off"></label>
+      <label class="field">Longitude <input id="fLng" type="text" inputmode="decimal" autocomplete="off"></label>
+    </div>
+    <div class="tool-row">
+      <button class="btn" id="geoBtn" type="button">Buscar posição pelo nome</button>
+      <button class="btn" id="pickBtn" type="button">Escolher no mapa</button>
+    </div>
+    <div class="msg" id="fMsg" role="alert"></div>
+    <div class="actions">
+      <button class="btn" id="fCancel" type="button">Cancelar</button>
+      <button class="btn primary" type="submit">Salvar</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+
+<script>
+
+// ==========================================
+// CARTO API KEY
+// ==========================================
+
+const CARTO_API_KEY = "cb1_593r_1_67f430fb462f42dabf96b26e";
+
+
+// ==========================================
+// LISTA PADRÃO DE CIDADES E CÂMERAS
+// ==========================================
+
+const DEFAULT_CAMERAS = [
+  {
+    city: "Andradas",
+    uf: "MG",
+    lat: -22.0681,
+    lng: -46.5725,
+    url: "https://andradas.portaldacidade.com/cameras-ao-vivo"
+  },
+  {
+    city: "Brumadinho",
+    uf: "MG",
+    lat: -20.1433,
+    lng: -44.1997,
+    url: "https://brumadinho.portaldacidade.com/cameras-ao-vivo"
+  },
+  {
+    city: "Brusque",
+    uf: "SC",
+    lat: -27.0979,
+    lng: -48.9178,
+    url: "https://brusqueaovivo.com.br/cameras"
+  },
+  {
+    city: "Canoinhas",
+    uf: "SC",
+    lat: -26.1772,
+    lng: -50.395,
+    url: "https://canoinhas.portaldacidade.com/cameras-ao-vivo"
+  },
+  {
+    city: "Foz do Iguaçu",
+    uf: "PR",
+    lat: -25.5469,
+    lng: -54.5882,
+    url: "https://foz.portaldacidade.com/cameras-ao-vivo"
+  },
+  {
+    city: "Guaratuba",
+    uf: "PR",
+    lat: -25.8828,
+    lng: -48.5748,
+    url: "https://guaratuba.portaldacidade.com/cameras-ao-vivo"
+  },
+  {
+    city: "Itapema",
+    uf: "SC",
+    lat: -27.0903,
+    lng: -48.6114,
+    url: "https://itapema.portaldacidade.com/cameras-ao-vivo"
+  },
+  {
+    city: "Loanda",
+    uf: "PR",
+    lat: -22.9232,
+    lng: -53.1372,
+    url: "https://loanda.portaldacidade.com/cameras-ao-vivo"
+  },
+  {
+    city: "Paranavaí",
+    uf: "PR",
+    lat: -23.0816,
+    lng: -52.4617,
+    url: "https://paranavai.portaldacidade.com/cameras-ao-vivo"
+  },
+  {
+    city: "Rio das Pedras",
+    uf: "SP",
+    lat: -22.8417,
+    lng: -47.606,
+    url: "https://riodaspedras.portaldacidade.com/cameras-ao-vivo"
+  },
+  {
+    city: "Santa Helena",
+    uf: "PR",
+    lat: -24.8583,
+    lng: -54.3367,
+    url: "https://santahelena.portaldacidade.com/cameras-ao-vivo"
+  },
+  {
+    city: "União da Vitória",
+    uf: "PR",
+    lat: -26.2278,
+    lng: -51.087,
+    url: "https://uniaodavitoria.portaldacidade.com/cameras-ao-vivo"
+  },
+  {
+    city: "Umuarama",
+    uf: "PR",
+    lat: -23.7656,
+    lng: -53.325,
+    url: "https://umuarama.portaldacidade.com/cameras-ao-vivo"
+  },
+  {
+    city: "Bauru",
+    uf: "SP",
+    lat: -22.3147,
+    lng: -49.0608,
+    url: "https://bauru.portaldacidade.com/cameras-ao-vivo"
+  },
+  {
+    city: "Guabiruba",
+    uf: "SC",
+    lat: -27.0864,
+    lng: -48.9781,
+    url: "https://brusqueaovivo.com.br/cameras/sc/guabiruba/mirante-santo-antonio"
+  },
+  {
+    city: "Foz do Iguaçu — Ponte da Amizade",
+    uf: "PR",
+    lat: -25.5097,
+    lng: -54.5942,
+    url: "https://catve.com/ponte-da-amizade"
+  },
+  {
+    city: "Foz do Iguaçu — Aduana",
+    uf: "PR",
+    lat: -25.514,
+    lng: -54.59,
+    url: "https://catve.com/aduana"
+  },
+  {
+    city: "Foz do Iguaçu — Centro",
+    uf: "PR",
+    lat: -25.542,
+    lng: -54.584,
+    url: "https://catve.com/foz-centro"
+  },
+  {
+    city: "Foz do Iguaçu — Av. Costa e Silva (BR-277)",
+    uf: "PR",
+    lat: -25.523,
+    lng: -54.558,
+    url: "https://catve.com/foz-br-277"
+  },
+  {
+    city: "Foz do Iguaçu — Vista geral",
+    uf: "PR",
+    lat: -25.53,
+    lng: -54.575,
+    url: "https://camerasdomundo.com/foz-do-iguacu-ao-vivo/"
+  },
+  {
+    city: "Cascavel — Centro",
+    uf: "PR",
+    lat: -24.9558,
+    lng: -53.4552,
+    url: "https://catve.com/cascavel-centro"
+  },
+  {
+    city: "Cascavel — Trevo Cataratas",
+    uf: "PR",
+    lat: -24.989,
+    lng: -53.45,
+    url: "https://catve.com/trevo-cataratas"
+  },
+  {
+    city: "Cascavel — Autódromo",
+    uf: "PR",
+    lat: -24.97,
+    lng: -53.49,
+    url: "https://catve.com/autodromo"
+  },
+  {
+    city: "Cascavel — Ciro Nardi",
+    uf: "PR",
+    lat: -24.95,
+    lng: -53.465,
+    url: "https://catve.com/ciro-nardi"
+  },
+  {
+    city: "Cascavel — Centro FAG",
+    uf: "PR",
+    lat: -24.949,
+    lng: -53.487,
+    url: "https://catve.com/fag"
+  },
+  {
+    city: "Cascavel — Av. das Torres",
+    uf: "PR",
+    lat: -24.9385,
+    lng: -53.469,
+    url: "https://catve.com/av-das-torres"
+  },
+  {
+    city: "Cascavel — Praça da Bíblia",
+    uf: "PR",
+    lat: -24.9575,
+    lng: -53.461,
+    url: "https://catve.com/pracabiblia"
+  },
+  {
+    city: "Cascavel — Praça do Migrante",
+    uf: "PR",
+    lat: -24.954,
+    lng: -53.459,
+    url: "https://catve.com/migrante"
+  },
+  {
+    city: "Toledo — Lago",
+    uf: "PR",
+    lat: -24.724,
+    lng: -53.738,
+    url: "https://catve.com/toledo"
+  },
+  {
+    city: "Toledo — Centro",
+    uf: "PR",
+    lat: -24.7136,
+    lng: -53.7433,
+    url: "https://catve.com/toledo-centro"
+  },
+  {
+    city: "Marechal Cândido Rondon — Centro",
+    uf: "PR",
+    lat: -24.557,
+    lng: -54.057,
+    url: "https://catve.com/marechal"
+  },
+  {
+    city: "Londrina — Centro",
+    uf: "PR",
+    lat: -23.3045,
+    lng: -51.1696,
+    url: "https://catve.com/londrina"
+  },
+  {
+    city: "Guaíra — Ponte Ayrton Senna",
+    uf: "PR",
+    lat: -24.061,
+    lng: -54.259,
+    url: "https://catve.com/ponte-airton-senna"
+  },
+  {
+    city: "Goioerê — Centro",
+    uf: "PR",
+    lat: -24.1833,
+    lng: -53.0278,
+    url: "https://camerasdomundo.com/centro-goioere/"
+  },
+  {
+    city: "Curitiba — Vista panorâmica",
+    uf: "PR",
+    lat: -25.4284,
+    lng: -49.2733,
+    url: "https://camerasdomundo.com/panoramica-curitiba-ao-vivo/"
+  },
+  {
+    city: "São José dos Pinhais — Aeroporto Afonso Pena",
+    uf: "PR",
+    lat: -25.5285,
+    lng: -49.1758,
+    url: "https://camerasdomundo.com/aeroporto-internacional-afonso-pena/"
+  },
+  {
+    city: "Guaratuba — Praia Central",
+    uf: "PR",
+    lat: -25.88,
+    lng: -48.57,
+    url: "https://camerasdomundo.com/praia-central-guaratuba-ao-vivo/"
+  },
+  {
+    city: "Matinhos — Praia de Caiobá",
+    uf: "PR",
+    lat: -25.85,
+    lng: -48.543,
+    url: "https://camerasdomundo.com/praia-caioba-matinhos-ao-vivo/"
+  },
+  {
+    city: "Pontal do Paraná — Praia de Leste",
+    uf: "PR",
+    lat: -25.72,
+    lng: -48.44,
+    url: "https://camerasdomundo.com/praia-de-leste-pontal-do-parana-ao-vivo/"
+  },
+  {
+    city: "Rio Negro — Centro",
+    uf: "PR",
+    lat: -26.103,
+    lng: -49.798,
+    url: "https://camerasdomundo.com/rio-negro/"
+  },
+  {
+    city: "Umuarama — Praça Miguel Rossafa",
+    uf: "PR",
+    lat: -23.765,
+    lng: -53.32,
+    url: "https://camerasdomundo.com/umuarama-ao-vivo/"
+  },
+  {
+    city: "Arapongas — Aeroporto",
+    uf: "PR",
+    lat: -23.475,
+    lng: -51.495,
+    url: "https://camerasdomundo.com/aeroporto-arapongas-ao-vivo/"
+  },
+  {
+    city: "Apucarana — Lago Jaboti",
+    uf: "PR",
+    lat: -23.564,
+    lng: -51.475,
+    url: "https://camerasdomundo.com/lago-jaboti-apucarana/"
+  },
+  {
+    city: "Apucarana — Av. Curitiba",
+    uf: "PR",
+    lat: -23.552,
+    lng: -51.46,
+    url: "https://camerasdomundo.com/avenida-curitiba-apucarana-parana/"
+  },
+  {
+    city: "Apucarana — Praça Rui Barbosa",
+    uf: "PR",
+    lat: -23.551,
+    lng: -51.4614,
+    url: "https://camerasdomundo.com/praca-rui-barbosa-apucarana-parana/"
+  },
+  {
+    city: "Apucarana — Praça Mauá",
+    uf: "PR",
+    lat: -23.55,
+    lng: -51.464,
+    url: "https://camerasdomundo.com/praca-visconde-de-maua-parana/"
+  },
+  {
+    city: "Apucarana — Mirante Parque Bela Vista",
+    uf: "PR",
+    lat: -23.558,
+    lng: -51.454,
+    url: "https://camerasdomundo.com/parque-bela-vista-apucarana-parana/"
+  },
+  {
+    city: "Apucarana — Parque da Raposa",
+    uf: "PR",
+    lat: -23.545,
+    lng: -51.47,
+    url: "https://camerasdomundo.com/parque-da-raposa-apucarana-parana/"
+  },
+  {
+    city: "Apucarana — Espaço das Feiras",
+    uf: "PR",
+    lat: -23.54,
+    lng: -51.45,
+    url: "https://camerasdomundo.com/espaco-das-feiras-apucarana-ao-vivo/"
+  },
+  {
+    city: "Apucarana — Rua Ouro Branco",
+    uf: "PR",
+    lat: -23.553,
+    lng: -51.458,
+    url: "https://camerasdomundo.com/rua-ouro-branco-apucarana-parana/"
+  },
+  {
+    city: "Apucarana — Av. Cristiano Kussmaul",
+    uf: "PR",
+    lat: -23.547,
+    lng: -51.468,
+    url: "https://camerasdomundo.com/avenida-cristiano-kussmaul-apucarana-ao-vivo/"
+  },
+  {
+    city: "Apucarana — Entrada sentido Maringá",
+    uf: "PR",
+    lat: -23.56,
+    lng: -51.49,
+    url: "https://camerasdomundo.com/entrada-apucarana-maringa-ao-vivo/"
+  },
+  {
+    city: "Apucarana — Entrada sentido Londrina",
+    uf: "PR",
+    lat: -23.54,
+    lng: -51.43,
+    url: "https://camerasdomundo.com/estrada-apucarana-londrina-ao-vivo/"
+  },
+  {
+    city: "Ponta Grossa — Clima ao Vivo",
+    uf: "PR",
+    lat: -25.0916,
+    lng: -50.1668,
+    url: "https://www.climaaovivo.com.br/cidades/PR?cidade=Ponta%20Grossa"
+  },
+  {
+    city: "Guarapuava — Clima ao Vivo",
+    uf: "PR",
+    lat: -25.3907,
+    lng: -51.4628,
+    url: "https://www.climaaovivo.com.br/cidades/PR?cidade=Guarapuava"
+  },
+  {
+    city: "Telêmaco Borba — Clima ao Vivo",
+    uf: "PR",
+    lat: -24.3245,
+    lng: -50.6158,
+    url: "https://www.climaaovivo.com.br/cidades/PR?cidade=Tel%C3%AAmaco%20Borba"
+  },
+  {
+    city: "Campo Grande — Clima ao Vivo",
+    uf: "MS",
+    lat: -20.4697,
+    lng: -54.6201,
+    url: "https://www.climaaovivo.com.br/cidades/MS?cidade=Campo%20Grande"
+  },
+  {
+    city: "Maracaju — Clima ao Vivo",
+    uf: "MS",
+    lat: -21.6105,
+    lng: -55.1678,
+    url: "https://www.climaaovivo.com.br/cidades/MS?cidade=Maracaju"
+  },
+  {
+    city: "Bonito — Clima ao Vivo",
+    uf: "MS",
+    lat: -21.1261,
+    lng: -56.4836,
+    url: "https://www.climaaovivo.com.br/cidades/MS?cidade=Bonito"
+  },
+  {
+    city: "Cerqueira César — Clima ao Vivo",
+    uf: "SP",
+    lat: -23.0386,
+    lng: -49.165,
+    url: "https://www.climaaovivo.com.br/cidades/SP?cidade=Cerqueira%20C%C3%A9sar"
+  },
+  {
+    city: "Olímpia — Clima ao Vivo",
+    uf: "SP",
+    lat: -20.7364,
+    lng: -48.9147,
+    url: "https://www.climaaovivo.com.br/cidades/SP?cidade=Ol%C3%ADmpia"
+  },
+  {
+    city: "Piracicaba — Clima ao Vivo",
+    uf: "SP",
+    lat: -22.7253,
+    lng: -47.6492,
+    url: "https://www.climaaovivo.com.br/cidades/SP?cidade=Piracicaba"
+  },
+  {
+    city: "Sorocaba — Clima ao Vivo",
+    uf: "SP",
+    lat: -23.5015,
+    lng: -47.4526,
+    url: "https://www.climaaovivo.com.br/cidades/SP?cidade=Sorocaba"
+  },
+  {
+    city: "Santos — Clima ao Vivo",
+    uf: "SP",
+    lat: -23.9608,
+    lng: -46.3336,
+    url: "https://www.climaaovivo.com.br/cidades/SP?cidade=Santos"
+  },
+  {
+    city: "Ubatuba — Clima ao Vivo",
+    uf: "SP",
+    lat: -23.4336,
+    lng: -45.0838,
+    url: "https://www.climaaovivo.com.br/cidades/SP?cidade=Ubatuba"
+  },
+  {
+    city: "Florianópolis — Clima ao Vivo",
+    uf: "SC",
+    lat: -27.5954,
+    lng: -48.548,
+    url: "https://www.climaaovivo.com.br/cidades/SC?cidade=Florian%C3%B3polis"
+  },
+  {
+    city: "Balneário Camboriú — Clima ao Vivo",
+    uf: "SC",
+    lat: -26.9906,
+    lng: -48.6348,
+    url: "https://www.climaaovivo.com.br/cidades/SC?cidade=Balne%C3%A1rio%20Cambori%C3%BA"
+  }
+];
+
+const UF_NAMES = {
+  AC: "Acre", AL: "Alagoas", AP: "Amapá", AM: "Amazonas", BA: "Bahia", CE: "Ceará", DF: "Distrito Federal",
+  ES: "Espírito Santo", GO: "Goiás", MA: "Maranhão", MT: "Mato Grosso", MS: "Mato Grosso do Sul",
+  MG: "Minas Gerais", PA: "Pará", PB: "Paraíba", PR: "Paraná", PE: "Pernambuco", PI: "Piauí",
+  RJ: "Rio de Janeiro", RN: "Rio Grande do Norte", RS: "Rio Grande do Sul", RO: "Rondônia",
+  RR: "Roraima", SC: "Santa Catarina", SP: "São Paulo", SE: "Sergipe", TO: "Tocantins"
+};
+const ALL_UFS = Object.keys(UF_NAMES);
+
+const svg = (inner, size) =>
+  '<svg width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + inner + '</svg>';
+const ICON_EDIT = (s) => svg('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/>', s || 18);
+const ICON_TRASH = (s) => svg('<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/>', s || 18);
+const ICON_EXT = svg('<path d="M7 17L17 7"/><path d="M8 7h9v9"/>', 16);
+
+
+// ==========================================
+// ESTADO E ARMAZENAMENTO (no navegador)
+// ==========================================
+
+const STORAGE_KEY = "mapa-cameras-v1";
+
+const SEEN_KEY = "mapa-cameras-defaults-seen";
+const LEGACY_DEFAULTS = 15; // quantidade de câmeras da lista original
+
+function loadCameras() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) {
+        // Acrescenta câmeras novas da lista padrão sem recriar as que o usuário excluiu
+        let seen = null;
+        try { seen = JSON.parse(localStorage.getItem(SEEN_KEY)); } catch (e) {}
+        if (!Array.isArray(seen)) seen = DEFAULT_CAMERAS.slice(0, LEGACY_DEFAULTS).map(d => d.url);
+        const have = new Set(arr.map(c => c.url));
+        DEFAULT_CAMERAS.forEach(d => {
+          if (!seen.includes(d.url) && !have.has(d.url)) arr.push(JSON.parse(JSON.stringify(d)));
+        });
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(arr));
+          localStorage.setItem(SEEN_KEY, JSON.stringify(DEFAULT_CAMERAS.map(d => d.url)));
+        } catch (e) {}
+        return arr;
+      }
+    }
+  } catch (e) { /* sem armazenamento: usa o padrão */ }
+  try { localStorage.setItem(SEEN_KEY, JSON.stringify(DEFAULT_CAMERAS.map(d => d.url))); } catch (e) {}
+  return JSON.parse(JSON.stringify(DEFAULT_CAMERAS));
+}
+
+function saveCameras() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(cameras)); }
+  catch (e) { console.warn("Não foi possível salvar no navegador."); }
+}
+
+let cameras = loadCameras();
+let markers = [];
+let currentUF = "ALL";
+let selectedIdx = -1;
+
+const mqMobile = matchMedia("(max-width: 700px)");
+const mqReduce = matchMedia("(prefers-reduced-motion: reduce)");
+const canHover = matchMedia("(hover: hover)").matches;
+const isMobile = () => mqMobile.matches;
+
+function esc(t) {
+  return String(t).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+function norm(t) {
+  return t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
+const $ = (id) => document.getElementById(id);
+const panel = $("sidebar"), grab = $("grab"), tools = $("tools");
+const chipsEl = $("chips"), listEl = $("list"), countEl = $("count"), searchEl = $("search");
+
+
+// ==========================================
+// MAPA
+// ==========================================
+
+const map = L.map("map", { zoomControl: false, minZoom: 3, maxZoom: 13, scrollWheelZoom: true });
+L.control.zoom({ position: "topright", zoomInTitle: "Aproximar", zoomOutTitle: "Afastar" }).addTo(map);
+
+const tileUrl = (theme) =>
+  "https://basemaps.cartocdn.com/rastertiles/" + (theme === "dark" ? "dark_all" : "voyager") +
+  "/{z}/{x}/{y}.png?key=" + encodeURIComponent(CARTO_API_KEY);
+
+const tiles = L.tileLayer(tileUrl(document.documentElement.dataset.theme), {
+  maxZoom: 20,
+  attribution: '&copy; OpenStreetMap contributors &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a>'
+}).addTo(map);
+
+// ==========================================
+// DIVISAS ENTRE ESTADOS (linha sutil)
+// ==========================================
+
+const STATE_BORDERS = {"type":"MultiLineString","coordinates":[[[-73.76,-7.13],[-72.66,-7.62],[-70.37,-8.14],[-68.73,-9.0],[-66.81,-9.81]],[[-61.58,-8.8],[-61.61,-8.79],[-61.63,-8.72],[-61.7,-8.71],[-61.71,-8.69],[-61.77,-8.75],[-61.84,-8.73],[-61.86,-8.85],[-61.91,-8.87],[-61.98,-8.88],[-62.03,-8.8],[-62.12,-8.8],[-62.16,-8.68],[-62.2,-8.64],[-62.18,-8.64],[-62.19,-8.59],[-62.27,-8.58],[-62.29,-8.6],[-62.28,-8.64],[-62.34,-8.6],[-62.33,-8.56],[-62.37,-8.49],[-62.37,-8.39],[-62.46,-8.34],[-62.53,-8.38],[-62.55,-8.36],[-62.56,-8.28],[-62.65,-8.24],[-62.69,-8.17],[-62.67,-8.14],[-62.69,-8.09],[-62.87,-7.98],[-63.62,-7.97],[-63.62,-8.03],[-63.67,-8.08],[-63.67,-8.12],[-63.75,-8.2],[-63.72,-8.25],[-63.77,-8.32],[-63.79,-8.33],[-63.87,-8.29],[-63.94,-8.33],[-63.94,-8.39],[-63.98,-8.42],[-63.94,-8.45],[-63.97,-8.49],[-63.92,-8.58],[-63.95,-8.61],[-63.99,-8.59],[-64.03,-8.72],[-64.13,-8.72],[-64.13,-8.8],[-64.16,-8.84],[-64.15,-8.96],[-64.31,-9.0],[-64.32,-8.93],[-64.45,-8.98],[-64.55,-8.98],[-64.61,-9.02],[-64.67,-9.01],[-64.7,-8.99],[-64.76,-9.02],[-64.79,-8.99],[-64.84,-8.99],[-64.92,-9.04],[-64.94,-9.12],[-64.92,-9.22],[-64.94,-9.26],[-65.1,-9.43],[-65.14,-9.45],[-65.18,-9.43],[-65.17,-9.39],[-65.2,-9.37],[-65.21,-9.29],[-65.25,-9.26],[-65.38,-9.34],[-65.45,-9.32],[-65.46,-9.4],[-65.43,-9.47],[-65.49,-9.47],[-65.51,-9.45],[-65.6,-9.41],[-65.68,-9.45],[-65.68,-9.5],[-65.72,-9.56],[-65.79,-9.59],[-65.82,-9.53],[-65.91,-9.48],[-65.97,-9.41],[-66.12,-9.41],[-66.17,-9.43],[-66.27,-9.41],[-66.31,-9.44],[-66.41,-9.41],[-66.39,-9.5],[-66.49,-9.6],[-66.5,-9.63],[-66.61,-9.66],[-66.73,-9.76],[-66.77,-9.75],[-66.81,-9.81]],[[-66.81,-9.81],[-66.64,-9.89]],[[-63.36,2.2],[-63.28,2.15],[-63.19,2.18],[-63.14,2.17],[-63.11,2.08],[-63.02,2.01],[-62.95,2.03],[-62.84,2.02],[-62.71,1.94],[-62.7,1.87],[-62.73,1.82],[-62.72,1.71],[-62.8,1.63],[-62.8,1.59],[-62.72,1.49],[-62.64,1.43],[-62.53,1.09],[-62.47,1.09],[-62.48,1.03],[-62.44,0.96],[-62.49,0.87],[-62.46,0.79],[-62.53,0.69],[-62.52,0.58],[-62.53,0.51],[-62.52,0.44],[-62.48,0.45],[-62.45,0.38],[-62.47,0.28],[-62.42,0.09],[-62.35,0.03],[-62.32,-0.1],[-62.24,-0.17],[-62.25,-0.3],[-62.19,-0.33],[-62.2,-0.39],[-62.31,-0.51],[-62.29,-0.65],[-62.37,-0.68],[-62.36,-0.71],[-62.41,-0.73],[-62.43,-0.69],[-62.49,-0.68],[-62.51,-0.71],[-62.5,-0.78],[-62.4,-0.82],[-62.29,-0.95],[-62.2,-0.98],[-62.12,-1.04],[-62.1,-1.1],[-62.04,-1.12],[-61.9,-1.4],[-61.83,-1.4],[-61.79,-1.38],[-61.63,-1.43],[-61.48,-1.58],[-61.47,-1.53],[-61.52,-1.5],[-61.54,-1.43],[-61.62,-1.39],[-61.58,-1.35],[-61.63,-1.3],[-61.57,-1.18],[-61.58,-1.08],[-61.54,-1.06],[-61.58,-0.94],[-61.54,-0.85],[-61.54,-0.76],[-61.48,-0.72],[-61.43,-0.63],[-61.23,-0.56],[-61.22,-0.5],[-61.16,-0.51],[-61.09,-0.5],[-61.05,-0.55],[-60.92,-0.56],[-60.91,-0.62],[-60.85,-0.65],[-60.84,-0.69],[-60.8,-0.7],[-60.8,-0.74],[-60.76,-0.76],[-60.77,-0.79],[-60.76,-0.8],[-60.75,-0.86],[-60.68,-0.87],[-60.67,-0.89],[-60.62,-0.86],[-60.59,-0.87],[-60.59,-0.85],[-60.53,-0.87],[-60.48,-0.77],[-60.43,-0.78],[-60.3,-0.71],[-60.31,-0.64],[-60.38,-0.59],[-60.4,-0.51],[-60.34,-0.44],[-60.35,-0.41],[-60.29,-0.29],[-60.3,-0.21],[-60.22,-0.14],[-60.2,-0.03],[-60.14,0.03],[-60.12,0.13],[-60.06,0.16],[-60.04,0.26],[-58.89,0.26]],[[-58.14,-7.36],[-58.21,-7.46],[-58.2,-7.62],[-58.28,-7.7],[-58.29,-7.77],[-58.38,-7.84],[-58.29,-8.13],[-58.32,-8.17],[-58.31,-8.32],[-58.35,-8.35],[-58.35,-8.39],[-58.42,-8.49],[-58.39,-8.6],[-58.44,-8.7],[-58.33,-8.72],[-58.42,-8.79],[-61.58,-8.8]],[[-60.36,-13.3],[-60.27,-13.14],[-60.28,-13.08],[-60.21,-13.03],[-60.19,-12.97],[-60.12,-12.96],[-60.09,-12.9],[-60.07,-12.62],[-59.93,-12.49],[-59.86,-12.48],[-59.82,-12.38],[-59.77,-12.34],[-59.89,-12.25],[-59.9,-12.12],[-59.98,-12.03],[-59.98,-11.91],[-60.08,-11.88],[-60.11,-11.84],[-60.11,-11.59],[-59.92,-11.4],[-59.93,-11.31],[-59.96,-11.29],[-59.98,-11.23],[-59.96,-11.19],[-60.0,-11.15],[-59.98,-11.12],[-60.07,-11.13],[-60.08,-11.1],[-60.2,-11.11],[-60.27,-11.1],[-60.3,-11.06],[-60.35,-11.07],[-60.35,-11.11],[-60.39,-11.09],[-60.41,-11.04],[-60.45,-11.04],[-60.46,-10.99],[-61.55,-10.99],[-61.52,-10.95],[-61.51,-10.79],[-61.47,-10.8],[-61.49,-10.74],[-61.47,-10.71],[-61.5,-10.69],[-61.46,-10.42],[-61.55,-10.31],[-61.58,-10.23],[-61.55,-10.2],[-61.6,-10.15],[-61.58,-10.06],[-61.53,-9.99],[-61.51,-9.86],[-61.52,-9.8],[-61.55,-9.79],[-61.53,-9.74],[-61.57,-9.72],[-61.5,-9.69],[-61.48,-9.63],[-61.5,-9.61],[-61.51,-9.53],[-61.55,-9.51],[-61.53,-9.5],[-61.58,-9.47],[-61.55,-9.39],[-61.63,-9.36],[-61.61,-9.28],[-61.63,-9.27],[-61.58,-9.24],[-61.53,-9.24],[-61.55,-9.09],[-61.47,-8.92],[-61.53,-8.82],[-61.58,-8.8]],[[-60.71,-13.67],[-60.63,-13.57],[-60.58,-13.56],[-60.51,-13.5],[-60.43,-13.49],[-60.39,-13.45],[-60.36,-13.3]],[[-58.89,0.26],[-58.89,1.21]],[[-58.89,0.26],[-58.9,-0.02],[-58.86,-0.08],[-58.87,-0.34],[-58.73,-0.43],[-58.71,-0.54],[-58.73,-0.61],[-58.7,-0.68],[-58.44,-0.88],[-58.45,-0.93],[-58.41,-0.98],[-58.43,-1.03],[-58.37,-1.07],[-58.32,-1.14],[-58.25,-1.13],[-58.16,-1.23],[-58.08,-1.13],[-58.02,-1.11],[-58.01,-1.15],[-57.97,-1.16],[-57.96,-1.22],[-58.0,-1.33],[-57.96,-1.4],[-57.82,-1.44],[-57.78,-1.51],[-57.71,-1.5],[-57.71,-1.58],[-57.68,-1.59],[-57.6,-1.57],[-57.59,-1.6],[-57.52,-1.63],[-57.53,-1.65],[-57.51,-1.64],[-57.47,-1.68],[-57.44,-1.67],[-57.43,-1.69],[-57.4,-1.68],[-57.39,-1.72],[-57.3,-1.73],[-57.25,-1.7],[-57.23,-1.73],[-57.16,-1.72],[-57.16,-1.77],[-57.13,-1.76],[-57.12,-1.79],[-57.1,-1.77],[-57.06,-1.81],[-57.07,-1.83],[-57.04,-1.91],[-56.99,-1.91],[-56.95,-1.96],[-56.86,-2.02],[-56.73,-2.02],[-56.72,-2.07],[-56.77,-2.17],[-56.68,-2.21],[-56.61,-2.21],[-56.6,-2.17],[-56.53,-2.14],[-56.41,-2.18],[-56.37,-2.14],[-56.32,-2.14],[-56.3,-2.1],[-56.23,-2.06],[-56.1,-2.04],[-56.22,-2.2],[-56.38,-2.27],[-56.47,-2.42],[-56.4,-2.46],[-58.26,-6.47],[-58.33,-6.5],[-58.35,-6.56],[-58.43,-6.62],[-58.48,-6.7],[-58.48,-6.78],[-58.43,-6.91],[-58.21,-7.13],[-58.17,-7.23],[-58.17,-7.31],[-58.14,-7.36]],[[-58.14,-7.36],[-58.07,-7.39],[-57.97,-7.53],[-57.94,-7.65],[-57.9,-7.68],[-57.83,-7.97],[-57.73,-8.09],[-57.71,-8.16],[-57.64,-8.21],[-57.69,-8.41],[-57.63,-8.52],[-57.65,-8.58],[-57.62,-8.59],[-57.59,-8.76],[-57.53,-8.75],[-57.43,-8.78],[-57.42,-8.86],[-57.38,-8.88],[-57.19,-8.93],[-57.04,-9.1],[-57.06,-9.18],[-57.0,-9.23],[-56.82,-9.25],[-56.76,-9.4],[-56.67,-9.37],[-53.13,-9.64],[-50.22,-9.84]],[[-57.75,-17.56],[-57.73,-17.53],[-57.71,-17.54],[-57.67,-17.67],[-57.68,-17.72],[-57.64,-17.72],[-57.6,-17.8],[-57.58,-17.8],[-57.53,-17.85],[-57.48,-17.86],[-57.45,-17.9],[-57.45,-17.87],[-57.38,-17.83],[-57.23,-17.81],[-57.25,-17.79],[-57.15,-17.77],[-57.12,-17.78],[-57.04,-17.73],[-56.96,-17.61],[-56.98,-17.61],[-56.98,-17.58],[-56.88,-17.53],[-56.86,-17.48],[-56.82,-17.46],[-56.83,-17.39],[-56.79,-17.39],[-56.73,-17.31],[-56.65,-17.34],[-56.65,-17.32],[-56.63,-17.33],[-56.53,-17.32],[-56.5,-17.29],[-56.44,-17.33],[-56.36,-17.27],[-56.34,-17.29],[-56.3,-17.28],[-56.25,-17.22],[-56.21,-17.23],[-56.18,-17.19],[-56.14,-17.19],[-56.11,-17.17],[-56.05,-17.19],[-56.04,-17.17],[-56.0,-17.2],[-56.01,-17.24],[-55.95,-17.25],[-55.94,-17.28],[-55.93,-17.26],[-55.89,-17.26],[-55.9,-17.27],[-55.89,-17.28],[-55.87,-17.27],[-55.78,-17.33],[-55.7,-17.35],[-55.66,-17.34],[-55.65,-17.36],[-55.64,-17.34],[-55.59,-17.37],[-55.58,-17.42],[-55.52,-17.48],[-55.38,-17.51],[-55.35,-17.55],[-55.29,-17.54],[-55.22,-17.62],[-55.13,-17.65],[-55.11,-17.63],[-54.99,-17.64],[-54.94,-17.61],[-54.86,-17.62],[-54.76,-17.57],[-54.75,-17.52],[-54.58,-17.47],[-54.48,-17.49],[-54.47,-17.53],[-54.38,-17.57],[-54.39,-17.63],[-54.3,-17.66],[-54.18,-17.6],[-54.08,-17.61],[-54.04,-17.49],[-53.95,-17.46],[-53.88,-17.37],[-53.83,-17.35],[-53.82,-17.29],[-53.71,-17.23],[-53.68,-17.25],[-53.71,-17.66],[-53.81,-17.67],[-53.89,-17.75],[-53.96,-17.88],[-53.95,-17.92],[-53.87,-17.92]],[[-50.11,0.7],[-50.31,0.68],[-50.41,0.62],[-50.45,0.57],[-50.56,0.31],[-50.67,0.19],[-50.78,0.11],[-50.93,0.07],[-51.08,-0.09],[-51.22,-0.12],[-51.35,-0.3],[-51.36,-0.37],[-51.42,-0.43],[-51.46,-0.51],[-51.6,-0.65],[-51.68,-0.78],[-51.7,-1.07],[-51.81,-1.16],[-51.89,-1.17],[-51.93,-1.13],[-51.96,-1.17],[-51.98,-1.12],[-51.99,-1.17],[-52.06,-1.18],[-52.05,-1.23],[-52.1,-1.23],[-52.12,-1.15],[-52.33,-1.12],[-52.36,-1.06],[-52.43,-1.05],[-52.41,-1.01],[-52.44,-0.93],[-52.4,-0.91],[-52.4,-0.88],[-52.46,-0.83],[-52.54,-0.85],[-52.5,-0.73],[-52.52,-0.59],[-52.64,-0.58],[-52.7,-0.46],[-52.68,-0.42],[-52.7,-0.39],[-52.69,-0.3],[-52.84,-0.19],[-52.85,-0.15],[-52.93,-0.14],[-52.98,0.02],[-53.09,0.2],[-53.09,0.26],[-53.17,0.38],[-53.15,0.58],[-53.11,0.68],[-53.41,0.93],[-53.46,1.13],[-53.4,1.16],[-53.43,1.24],[-53.54,1.21],[-53.52,1.26],[-53.56,1.31],[-53.54,1.34],[-53.59,1.36],[-53.65,1.34],[-53.65,1.41],[-53.67,1.37],[-53.71,1.38],[-53.7,1.42],[-53.72,1.43],[-53.73,1.39],[-53.8,1.42],[-53.82,1.41],[-53.81,1.39],[-53.85,1.39],[-53.84,1.41],[-53.88,1.4],[-53.9,1.46],[-53.94,1.44],[-53.93,1.47],[-54.0,1.48],[-54.01,1.52],[-54.09,1.49],[-54.08,1.53],[-54.12,1.56],[-54.1,1.59],[-54.13,1.59],[-54.14,1.64],[-54.18,1.66],[-54.19,1.63],[-54.31,1.74],[-54.38,1.76],[-54.39,1.75],[-54.51,1.75],[-54.57,1.78],[-54.74,1.78],[-54.73,1.83],[-54.77,1.94],[-54.75,1.97],[-54.81,2.06],[-54.81,2.14],[-54.76,2.2],[-54.81,2.27],[-54.81,2.34],[-54.87,2.42]],[[-53.1,-22.62],[-53.2,-22.73],[-53.35,-22.78],[-53.55,-22.89],[-53.61,-22.95],[-53.63,-23.0],[-53.64,-23.12],[-53.73,-23.32],[-53.77,-23.37],[-53.98,-23.46],[-54.08,-23.76],[-54.1,-23.95],[-54.27,-24.06]],[[-53.87,-17.92],[-53.77,-18.0],[-53.69,-18.01],[-53.66,-17.98],[-53.61,-17.98],[-53.59,-18.01],[-53.47,-18.04],[-53.43,-17.98],[-53.38,-18.01],[-53.24,-18.01],[-53.17,-18.04],[-53.07,-18.04]],[[-53.82,-27.17],[-53.77,-27.15],[-53.74,-27.19],[-53.67,-27.16],[-53.64,-27.22],[-53.62,-27.19],[-53.56,-27.17],[-53.49,-27.2],[-53.51,-27.14],[-53.46,-27.16],[-53.41,-27.14],[-53.37,-27.09],[-53.29,-27.13],[-53.31,-27.22],[-53.24,-27.17],[-53.19,-27.19],[-53.16,-27.14],[-53.13,-27.18],[-53.07,-27.16],[-53.08,-27.1],[-53.03,-27.08],[-53.04,-27.15],[-52.99,-27.14],[-52.99,-27.22],[-52.97,-27.22],[-52.96,-27.16],[-52.93,-27.2],[-52.85,-27.17],[-52.84,-27.21],[-52.77,-27.21],[-52.75,-27.26],[-52.71,-27.24],[-52.69,-27.28],[-52.67,-27.24],[-52.63,-27.26],[-52.55,-27.24],[-52.54,-27.26],[-52.48,-27.26],[-52.48,-27.23],[-52.43,-27.22],[-52.44,-27.26],[-52.4,-27.29],[-52.4,-27.26],[-52.38,-27.26],[-52.37,-27.3],[-52.35,-27.29],[-52.3,-27.32],[-52.3,-27.26],[-52.25,-27.26],[-52.23,-27.27],[-52.28,-27.3],[-52.22,-27.33],[-52.17,-27.27],[-52.17,-27.31],[-52.11,-27.31],[-52.1,-27.35],[-52.01,-27.33],[-52.02,-27.36],[-51.95,-27.39],[-52.01,-27.4],[-51.93,-27.43],[-51.95,-27.47],[-51.9,-27.46],[-51.89,-27.52],[-51.86,-27.48],[-51.85,-27.53],[-51.82,-27.51],[-51.8,-27.53],[-51.8,-27.49],[-51.75,-27.49],[-51.72,-27.51],[-51.69,-27.48],[-51.66,-27.52],[-51.63,-27.49],[-51.63,-27.54],[-51.58,-27.52],[-51.57,-27.58],[-51.55,-27.56],[-51.49,-27.56],[-51.43,-27.65],[-51.39,-27.62],[-51.37,-27.67],[-51.32,-27.67],[-51.31,-27.72],[-51.28,-27.72],[-51.23,-27.78],[-51.19,-27.78],[-51.13,-27.81],[-51.13,-27.83],[-51.08,-27.83],[-51.01,-27.96],[-50.98,-27.94],[-50.93,-27.97],[-50.92,-28.01],[-50.88,-28.04],[-50.9,-28.09],[-50.88,-28.09],[-50.87,-28.14],[-50.83,-28.12],[-50.79,-28.14],[-50.79,-28.2],[-50.77,-28.19],[-50.75,-28.25],[-50.7,-28.27],[-50.62,-28.39],[-50.59,-28.38],[-50.54,-28.43],[-50.53,-28.4],[-50.38,-28.45],[-50.36,-28.42],[-50.35,-28.46],[-50.33,-28.43],[-50.27,-28.46],[-50.25,-28.43],[-50.22,-28.46],[-50.18,-28.45],[-50.16,-28.5],[-50.14,-28.49],[-50.16,-28.46],[-50.13,-28.43],[-50.12,-28.47],[-50.1,-28.48],[-49.97,-28.44],[-49.94,-28.48],[-49.93,-28.45],[-49.86,-28.44],[-49.88,-28.45],[-49.87,-28.48],[-49.84,-28.5],[-49.81,-28.47],[-49.78,-28.5],[-49.76,-28.46],[-49.77,-28.49],[-49.73,-28.52],[-49.75,-28.55],[-49.69,-28.62],[-49.78,-28.63],[-49.78,-28.61],[-49.84,-28.67],[-49.82,-28.69],[-49.84,-28.71],[-49.87,-28.7],[-49.88,-28.74],[-49.9,-28.71],[-49.93,-28.73],[-49.92,-28.75],[-49.95,-28.76],[-49.96,-28.82],[-49.95,-28.85],[-49.97,-28.87],[-49.93,-28.87],[-49.97,-28.92],[-49.94,-28.92],[-49.96,-28.96],[-49.92,-28.98],[-49.96,-29.02],[-49.94,-29.02],[-49.96,-29.05],[-50.01,-29.07],[-49.96,-29.07]],[[-48.62,-25.98],[-48.64,-25.96],[-48.68,-25.98],[-48.96,-25.98],[-49.05,-26.02],[-49.07,-26.0],[-49.17,-26.0],[-49.24,-26.03],[-49.29,-26.1],[-49.37,-26.16],[-49.46,-26.16],[-49.5,-26.22],[-49.54,-26.21],[-49.55,-26.24],[-49.63,-26.21],[-49.63,-26.19],[-49.65,-26.21],[-49.65,-26.19],[-49.69,-26.19],[-49.68,-26.18],[-49.71,-26.15],[-49.73,-26.17],[-49.72,-26.14],[-49.77,-26.1],[-49.78,-26.12],[-49.84,-26.07],[-49.83,-26.05],[-49.93,-26.03],[-49.94,-26.01],[-49.97,-26.06],[-49.96,-26.02],[-49.99,-26.01],[-50.01,-26.01],[-50.01,-26.04],[-50.04,-26.03],[-50.08,-26.05],[-50.08,-26.02],[-50.12,-26.06],[-50.13,-26.04],[-50.15,-26.06],[-50.14,-26.03],[-50.17,-26.02],[-50.16,-26.04],[-50.18,-26.08],[-50.25,-26.03],[-50.25,-26.05],[-50.33,-26.08],[-50.32,-26.13],[-50.46,-26.03],[-50.55,-26.04],[-50.57,-26.0],[-50.59,-26.04],[-50.55,-26.05],[-50.63,-26.06],[-50.66,-26.1],[-50.65,-26.13],[-50.73,-26.2],[-50.72,-26.24],[-50.79,-26.23],[-50.84,-26.27],[-50.87,-26.24],[-50.9,-26.29],[-50.93,-26.23],[-50.94,-26.28],[-51.0,-26.23],[-51.05,-26.24],[-51.08,-26.23],[-51.1,-26.27],[-51.24,-26.32],[-51.25,-26.38],[-51.3,-26.42],[-51.25,-26.46],[-51.27,-26.5],[-51.22,-26.55],[-51.23,-26.62],[-51.28,-26.65],[-51.39,-26.66],[-51.41,-26.72],[-51.51,-26.58],[-51.61,-26.59],[-51.66,-26.57],[-51.87,-26.6],[-52.01,-26.57],[-52.09,-26.51],[-52.1,-26.48],[-52.19,-26.44],[-52.28,-26.46],[-52.4,-26.42],[-52.46,-26.44],[-52.52,-26.4],[-52.6,-26.41],[-52.68,-26.35],[-52.74,-26.34],[-52.95,-26.36],[-52.99,-26.35],[-53.09,-26.39],[-53.25,-26.3],[-53.28,-26.25],[-53.38,-26.24],[-53.5,-26.3],[-53.62,-26.26]],[[-51.0,-20.08],[-51.07,-20.25],[-51.15,-20.3],[-51.34,-20.36],[-51.5,-20.57],[-51.59,-20.63],[-51.63,-20.75],[-51.62,-20.93],[-51.67,-20.97],[-51.72,-20.98],[-51.79,-21.1],[-51.88,-21.14],[-51.88,-21.2],[-51.85,-21.27],[-51.87,-21.35],[-51.97,-21.5],[-52.07,-21.5],[-52.09,-21.54],[-52.1,-21.57],[-52.05,-21.64],[-52.08,-21.71],[-52.16,-21.77],[-52.19,-21.85],[-52.31,-21.95],[-52.38,-22.11],[-52.49,-22.22],[-52.75,-22.34],[-52.86,-22.44],[-53.0,-22.49],[-53.08,-22.56],[-53.1,-22.62]],[[-53.1,-22.62],[-53.09,-22.66],[-52.98,-22.58],[-52.92,-22.57],[-52.86,-22.61],[-52.81,-22.6],[-52.7,-22.63],[-52.59,-22.57],[-52.5,-22.63],[-52.43,-22.61],[-52.3,-22.64],[-52.25,-22.61],[-52.22,-22.67],[-52.16,-22.64],[-52.15,-22.55],[-52.11,-22.52],[-51.94,-22.57],[-51.87,-22.63],[-51.75,-22.62],[-51.72,-22.67],[-51.63,-22.66],[-51.56,-22.7],[-51.5,-22.69],[-51.45,-22.65],[-51.26,-22.67],[-51.15,-22.75],[-50.94,-22.8],[-50.89,-22.8],[-50.79,-22.89],[-50.81,-22.94],[-50.74,-22.96],[-50.66,-22.9],[-50.61,-22.92],[-50.54,-22.91],[-50.5,-22.95],[-50.43,-22.94],[-50.42,-22.91],[-50.38,-22.9],[-50.34,-22.95],[-50.27,-22.93],[-50.18,-22.95],[-50.07,-22.93],[-50.05,-22.9],[-50.0,-22.93],[-49.99,-22.9],[-49.96,-22.93],[-49.97,-22.96],[-49.9,-23.0],[-49.91,-23.05],[-49.83,-23.07],[-49.79,-23.1],[-49.74,-23.1],[-49.73,-23.14],[-49.68,-23.16],[-49.63,-23.29],[-49.64,-23.35],[-49.59,-23.38],[-49.62,-23.4],[-49.57,-23.43],[-49.6,-23.44],[-49.63,-23.51],[-49.6,-23.54],[-49.62,-23.64],[-49.55,-23.7],[-49.57,-23.75],[-49.56,-23.82],[-49.61,-23.85],[-49.56,-23.92],[-49.51,-23.93],[-49.52,-23.95],[-49.5,-23.96],[-49.52,-23.97],[-49.43,-24.09],[-49.34,-24.14],[-49.36,-24.21],[-49.3,-24.25],[-49.28,-24.31],[-49.2,-24.34],[-49.25,-24.41],[-49.23,-24.41],[-49.25,-24.47],[-49.3,-24.5],[-49.28,-24.54],[-49.32,-24.56],[-49.3,-24.67],[-49.21,-24.7],[-49.19,-24.67],[-49.06,-24.68],[-49.04,-24.64],[-49.0,-24.63],[-49.01,-24.66],[-48.96,-24.68],[-48.83,-24.66],[-48.78,-24.7],[-48.76,-24.68],[-48.69,-24.69],[-48.69,-24.67],[-48.68,-24.67],[-48.66,-24.71],[-48.62,-24.67],[-48.58,-24.67],[-48.53,-24.74],[-48.5,-24.74],[-48.56,-24.81],[-48.57,-24.97],[-48.6,-25.0],[-48.56,-25.08],[-48.53,-25.1],[-48.47,-25.01],[-48.41,-24.98],[-48.32,-25.04],[-48.33,-25.07],[-48.3,-25.02],[-48.28,-25.03],[-48.25,-24.98],[-48.21,-25.03],[-48.21,-25.08],[-48.16,-25.14],[-48.19,-25.2],[-48.11,-25.25],[-48.03,-25.22]],[[-53.07,-18.04],[-53.07,-17.99],[-53.13,-17.92],[-53.17,-17.77],[-53.24,-17.71],[-53.25,-17.62],[-53.23,-17.44],[-53.2,-17.38],[-53.22,-17.3],[-53.12,-17.11],[-53.06,-17.07],[-53.07,-17.05],[-53.04,-16.91],[-53.01,-16.86],[-52.97,-16.87],[-52.93,-16.84],[-52.93,-16.8],[-52.91,-16.81],[-52.88,-16.78],[-52.79,-16.74],[-52.75,-16.63],[-52.72,-16.64],[-52.74,-16.59],[-52.71,-16.6],[-52.7,-16.57],[-52.68,-16.58],[-52.67,-16.55],[-52.64,-16.55],[-52.64,-16.5],[-52.61,-16.5],[-52.6,-16.46],[-52.64,-16.41],[-52.69,-16.4],[-52.69,-16.32],[-52.66,-16.28],[-52.62,-16.29],[-52.58,-16.25],[-52.55,-16.26],[-52.57,-16.23],[-52.55,-16.22],[-52.55,-16.16],[-52.53,-16.14],[-52.33,-16.07],[-52.25,-15.89],[-52.01,-15.89],[-51.95,-15.81],[-51.88,-15.82],[-51.76,-15.65],[-51.78,-15.54],[-51.73,-15.55],[-51.73,-15.51],[-51.7,-15.48],[-51.7,-15.41],[-51.67,-15.37],[-51.69,-15.31],[-51.65,-15.27],[-51.67,-15.25],[-51.65,-15.18],[-51.6,-15.16],[-51.52,-15.06],[-51.48,-15.06],[-51.43,-15.01],[-51.38,-15.01],[-51.32,-14.97],[-51.29,-15.03],[-51.24,-15.03],[-51.09,-14.92],[-51.09,-14.84],[-51.04,-14.79],[-51.05,-14.75],[-50.96,-14.53],[-51.0,-14.42],[-50.97,-14.29],[-50.91,-14.17],[-50.92,-14.11],[-50.87,-14.13],[-50.83,-14.09],[-50.87,-13.98],[-50.84,-13.86],[-50.87,-13.73],[-50.8,-13.69],[-50.76,-13.53],[-50.66,-13.44],[-50.67,-13.38],[-50.61,-13.31],[-50.58,-13.22],[-50.61,-13.06],[-50.57,-13.04],[-50.59,-13.0],[-50.53,-12.98],[-50.51,-12.86]],[[-50.94,-19.47],[-50.98,-19.41],[-51.03,-19.4],[-51.02,-19.38],[-51.09,-19.31],[-51.2,-19.26],[-51.25,-19.27],[-51.31,-19.22],[-51.37,-19.22],[-51.42,-19.17],[-51.58,-19.13],[-51.66,-19.14],[-51.85,-19.05],[-51.94,-18.97],[-52.02,-18.98],[-52.04,-18.95],[-52.08,-18.95],[-52.18,-18.85],[-52.34,-18.82],[-52.45,-18.69],[-52.55,-18.66],[-52.59,-18.69],[-52.75,-18.69],[-52.92,-18.64],[-52.96,-18.54],[-52.88,-18.47],[-52.87,-18.43],[-52.8,-18.41],[-52.76,-18.35],[-52.82,-18.31],[-52.95,-18.3],[-53.02,-18.35],[-53.07,-18.34],[-53.1,-18.31],[-53.14,-18.08],[-53.07,-18.04]],[[-44.81,-22.4],[-44.97,-22.47],[-45.03,-22.46],[-45.13,-22.5],[-45.18,-22.55],[-45.26,-22.58],[-45.27,-22.62],[-45.33,-22.62],[-45.4,-22.65],[-45.47,-22.59],[-45.49,-22.63],[-45.54,-22.65],[-45.58,-22.65],[-45.55,-22.63],[-45.58,-22.6],[-45.66,-22.65],[-45.68,-22.64],[-45.66,-22.58],[-45.72,-22.58],[-45.74,-22.61],[-45.69,-22.65],[-45.74,-22.66],[-45.82,-22.72],[-45.8,-22.74],[-45.73,-22.72],[-45.71,-22.81],[-45.75,-22.79],[-45.79,-22.86],[-45.82,-22.83],[-45.89,-22.88],[-45.91,-22.82],[-46.01,-22.89],[-46.09,-22.89],[-46.14,-22.92],[-46.14,-22.86],[-46.24,-22.89],[-46.27,-22.88],[-46.3,-22.9],[-46.36,-22.9],[-46.38,-22.87],[-46.38,-22.83],[-46.33,-22.76],[-46.45,-22.73],[-46.48,-22.7],[-46.47,-22.67],[-46.39,-22.66],[-46.42,-22.63],[-46.4,-22.62],[-46.43,-22.57],[-46.41,-22.54],[-46.5,-22.52],[-46.54,-22.49],[-46.53,-22.47],[-46.55,-22.45],[-46.67,-22.41],[-46.66,-22.37],[-46.72,-22.31],[-46.67,-22.18],[-46.65,-22.18],[-46.6,-22.13],[-46.65,-22.09],[-46.72,-22.08],[-46.66,-22.07],[-46.68,-22.03],[-46.61,-22.01],[-46.67,-21.93],[-46.65,-21.88],[-46.69,-21.84],[-46.63,-21.77],[-46.62,-21.68],[-46.57,-21.68],[-46.52,-21.61],[-46.51,-21.47],[-46.58,-21.43],[-46.61,-21.44],[-46.67,-21.36],[-46.71,-21.4],[-46.76,-21.36],[-46.83,-21.37],[-46.92,-21.43],[-47.01,-21.42],[-47.0,-21.35],[-47.05,-21.25],[-47.08,-21.24],[-47.06,-21.21],[-47.1,-21.21],[-47.12,-21.19],[-47.13,-21.13],[-47.11,-21.1],[-47.14,-21.09],[-47.16,-21.02],[-47.14,-20.98],[-47.24,-20.88],[-47.19,-20.73],[-47.17,-20.7],[-47.11,-20.71],[-47.1,-20.64],[-47.15,-20.52],[-47.29,-20.45],[-47.3,-20.35],[-47.23,-20.22],[-47.26,-20.17],[-47.44,-20.05],[-47.43,-20.01],[-47.47,-19.96],[-47.58,-20.0],[-47.64,-20.05],[-47.7,-19.98],[-47.86,-19.99],[-47.89,-20.12],[-47.93,-20.11],[-47.98,-20.03],[-48.02,-20.12],[-48.11,-20.14],[-48.24,-20.03],[-48.25,-20.08],[-48.22,-20.13],[-48.25,-20.14],[-48.41,-20.11],[-48.49,-20.14],[-48.58,-20.13],[-48.65,-20.17],[-48.82,-20.16],[-48.86,-20.18],[-48.88,-20.27],[-48.87,-20.4],[-48.9,-20.44],[-48.97,-20.39],[-48.96,-20.26],[-48.99,-20.16],[-49.07,-20.15],[-49.13,-20.28],[-49.18,-20.31],[-49.22,-20.3],[-49.26,-20.26],[-49.31,-20.1],[-49.3,-20.02],[-49.25,-20.0],[-49.25,-19.97],[-49.44,-19.98],[-49.5,-19.92],[-49.55,-19.91],[-49.64,-19.93],[-49.89,-19.94],[-50.01,-19.93],[-50.1,-19.88],[-50.35,-19.86],[-50.47,-19.78],[-50.58,-19.82],[-50.66,-19.9],[-50.91,-19.99],[-51.0,-20.08]],[[-51.0,-20.08],[-51.02,-19.96],[-51.0,-19.91],[-51.05,-19.73],[-50.99,-19.59],[-50.93,-19.59],[-50.96,-19.5],[-50.94,-19.47]],[[-47.31,-16.05],[-47.31,-16.09],[-47.33,-16.09],[-47.35,-16.13],[-47.32,-16.23],[-47.37,-16.33],[-47.43,-16.39],[-47.46,-16.5],[-47.44,-16.54],[-47.41,-16.56],[-47.41,-16.58],[-47.34,-16.59],[-47.33,-16.62],[-47.32,-16.6],[-47.25,-16.67],[-47.22,-16.81],[-47.19,-16.82],[-47.2,-16.91],[-47.16,-16.92],[-47.17,-16.95],[-47.13,-16.98],[-47.15,-17.0],[-47.13,-17.01],[-47.15,-17.03],[-47.18,-17.04],[-47.18,-17.06],[-47.25,-17.08],[-47.28,-17.14],[-47.35,-17.17],[-47.34,-17.19],[-47.36,-17.19],[-47.36,-17.22],[-47.43,-17.28],[-47.42,-17.32],[-47.45,-17.33],[-47.44,-17.35],[-47.51,-17.33],[-47.54,-17.45],[-47.51,-17.46],[-47.49,-17.53],[-47.33,-17.52],[-47.27,-17.61],[-47.27,-17.67],[-47.31,-17.7],[-47.37,-17.83],[-47.28,-18.06],[-47.36,-18.08],[-47.4,-18.14],[-47.43,-18.14],[-47.43,-18.17],[-47.52,-18.2],[-47.53,-18.23],[-47.54,-18.19],[-47.57,-18.2],[-47.64,-18.29],[-47.61,-18.31],[-47.63,-18.33],[-47.66,-18.33],[-47.7,-18.38],[-47.74,-18.36],[-47.75,-18.41],[-47.78,-18.42],[-47.81,-18.4],[-47.83,-18.45],[-47.86,-18.44],[-47.87,-18.47],[-47.91,-18.47],[-47.95,-18.5],[-47.98,-18.44],[-48.01,-18.45],[-48.06,-18.41],[-48.11,-18.43],[-48.16,-18.37],[-48.26,-18.33],[-48.31,-18.36],[-48.31,-18.38],[-48.41,-18.36],[-48.48,-18.38],[-48.48,-18.35],[-48.52,-18.37],[-48.56,-18.32],[-48.76,-18.34],[-48.82,-18.38],[-48.83,-18.35],[-48.94,-18.31],[-49.08,-18.42],[-49.11,-18.38],[-49.16,-18.41],[-49.21,-18.41],[-49.19,-18.45],[-49.25,-18.52],[-49.29,-18.56],[-49.33,-18.57],[-49.38,-18.64],[-49.42,-18.64],[-49.48,-18.56],[-49.49,-18.5],[-49.54,-18.49],[-49.56,-18.55],[-49.65,-18.56],[-49.64,-18.6],[-49.77,-18.61],[-49.78,-18.64],[-50.02,-18.6],[-50.08,-18.67],[-50.16,-18.66],[-50.31,-18.7],[-50.38,-18.81],[-50.42,-18.83],[-50.44,-18.89],[-50.51,-18.94],[-50.5,-19.03],[-50.54,-19.1],[-50.58,-19.14],[-50.68,-19.14],[-50.68,-19.17],[-50.73,-19.19],[-50.75,-19.24],[-50.82,-19.29],[-50.87,-19.42],[-50.83,-19.49],[-50.94,-19.47]],[[-50.51,-12.86],[-50.47,-12.75],[-50.49,-12.75],[-50.48,-12.71],[-50.43,-12.69],[-50.44,-12.65],[-50.41,-12.65],[-50.42,-12.62],[-50.37,-12.55],[-50.21,-12.45],[-50.18,-12.43],[-50.2,-12.41],[-50.17,-12.42],[-50.14,-12.4],[-50.22,-12.49],[-50.23,-12.53],[-50.19,-12.56],[-50.23,-12.58],[-50.27,-12.68],[-50.3,-12.68],[-50.28,-12.72],[-50.31,-12.8],[-50.29,-12.84],[-50.23,-12.85],[-50.18,-12.9],[-50.08,-12.91],[-49.91,-12.97],[-49.37,-13.27],[-49.34,-13.24],[-49.35,-13.1],[-49.24,-12.88],[-49.12,-12.79],[-49.11,-12.84],[-49.07,-12.85],[-49.08,-12.9],[-49.02,-12.91],[-48.98,-12.96],[-48.86,-12.8],[-48.84,-12.84],[-48.74,-12.92],[-48.73,-12.99],[-48.67,-12.99],[-48.6,-13.06],[-48.58,-13.13],[-48.6,-13.24],[-48.59,-13.32],[-48.55,-13.3],[-48.55,-13.2],[-48.51,-13.13],[-48.47,-13.14],[-48.47,-13.24],[-48.44,-13.29],[-48.17,-13.15],[-48.15,-13.15],[-48.16,-13.31],[-48.08,-13.29],[-48.06,-13.23],[-48.02,-13.28],[-47.99,-13.28],[-47.97,-13.31],[-47.94,-13.29],[-47.88,-13.32],[-47.82,-13.31],[-47.68,-13.47],[-47.62,-13.37],[-47.65,-13.35],[-47.66,-13.3],[-47.64,-13.26],[-47.67,-13.21],[-47.63,-13.1],[-47.56,-13.12],[-47.56,-13.18],[-47.48,-13.18],[-47.49,-13.22],[-47.44,-13.23],[-47.45,-13.25],[-47.43,-13.29],[-47.38,-13.23],[-47.28,-13.26],[-47.23,-13.19],[-47.18,-13.19],[-47.15,-13.21],[-47.13,-13.18],[-47.09,-13.18],[-47.0,-13.12],[-46.98,-13.13],[-46.89,-13.05],[-46.85,-13.07],[-46.82,-13.0],[-46.75,-12.97],[-46.45,-12.97],[-46.42,-12.82],[-46.37,-12.86],[-46.36,-12.99],[-46.11,-12.92]],[[-50.22,-9.84],[-50.3,-10.04],[-50.39,-10.13],[-50.38,-10.22],[-50.42,-10.36],[-50.47,-10.4],[-50.48,-10.49],[-50.52,-10.5],[-50.54,-10.6],[-50.6,-10.66],[-50.57,-10.75],[-50.62,-10.84],[-50.6,-10.88],[-50.63,-10.94],[-50.61,-11.07],[-50.66,-11.13],[-50.66,-11.25],[-50.74,-11.45],[-50.74,-11.54],[-50.72,-11.58],[-50.66,-11.6],[-50.66,-11.67],[-50.72,-11.74],[-50.69,-11.86],[-50.64,-11.88],[-50.68,-11.99],[-50.67,-12.08],[-50.69,-12.2],[-50.64,-12.22],[-50.64,-12.35],[-50.62,-12.43],[-50.63,-12.46],[-50.65,-12.46],[-50.69,-12.57],[-50.67,-12.6],[-50.71,-12.61],[-50.7,-12.65],[-50.65,-12.65],[-50.65,-12.68],[-50.62,-12.73],[-50.64,-12.77],[-50.61,-12.78],[-50.62,-12.82],[-50.58,-12.8],[-50.6,-12.83],[-50.52,-12.84],[-50.51,-12.86]],[[-48.75,-5.35],[-48.59,-5.42],[-48.51,-5.43],[-48.38,-5.39],[-48.3,-5.52],[-48.14,-5.6],[-48.17,-5.71],[-48.27,-5.73],[-48.29,-5.76],[-48.29,-5.84],[-48.23,-5.95],[-48.33,-6.0],[-48.33,-6.04],[-48.29,-6.07],[-48.29,-6.1],[-48.43,-6.18],[-48.38,-6.38],[-48.5,-6.35],[-48.61,-6.45],[-48.66,-6.56],[-48.66,-6.66],[-48.81,-6.75],[-49.02,-6.78],[-49.21,-6.93],[-49.18,-7.23],[-49.23,-7.33],[-49.38,-7.5],[-49.38,-7.54],[-49.32,-7.68],[-49.15,-7.8],[-49.18,-8.05],[-49.22,-8.19],[-49.28,-8.38],[-49.38,-8.45],[-49.41,-8.58],[-49.45,-8.61],[-49.59,-8.84],[-49.68,-8.86],[-49.74,-8.91],[-49.84,-9.03],[-49.91,-9.17],[-50.04,-9.29],[-50.1,-9.48],[-50.09,-9.55],[-50.22,-9.84]],[[-49.97,-29.12],[-49.99,-29.14],[-50.01,-29.13],[-50.02,-29.18],[-50.08,-29.19],[-50.08,-29.16],[-50.1,-29.16],[-50.09,-29.22]],[[-50.09,-29.22],[-50.11,-29.24],[-50.09,-29.21],[-50.14,-29.19],[-50.14,-29.23],[-50.17,-29.25],[-50.13,-29.3],[-50.12,-29.28],[-50.04,-29.35],[-50.11,-29.26],[-49.96,-29.2],[-49.87,-29.22],[-49.84,-29.28],[-49.73,-29.32]],[[-48.75,-5.35],[-47.79,-4.59],[-47.68,-4.61],[-47.61,-4.56],[-47.5,-4.4],[-47.47,-4.31],[-47.37,-4.24],[-47.32,-4.05],[-47.29,-4.05],[-47.19,-3.98],[-47.17,-3.92],[-47.09,-3.86],[-47.04,-3.67],[-47.06,-3.65],[-47.03,-3.6],[-47.04,-3.56],[-46.98,-3.53],[-46.97,-3.47],[-46.95,-3.48],[-46.94,-3.37],[-46.81,-3.31],[-46.83,-3.29],[-46.81,-3.24],[-46.76,-3.22],[-46.77,-3.18],[-46.75,-3.19],[-46.72,-3.15],[-46.75,-3.12],[-46.72,-3.11],[-46.71,-3.13],[-46.71,-3.1],[-46.68,-3.09],[-46.67,-3.0],[-46.65,-2.97],[-46.68,-2.88],[-46.64,-2.88],[-46.64,-2.85],[-46.61,-2.85],[-46.61,-2.83],[-46.58,-2.84],[-46.6,-2.79],[-46.64,-2.79],[-46.64,-2.75],[-46.67,-2.73],[-46.66,-2.69],[-46.64,-2.69],[-46.62,-2.64],[-46.59,-2.67],[-46.57,-2.63],[-46.5,-2.61],[-46.49,-2.54],[-46.42,-2.53],[-46.44,-2.51],[-46.44,-2.41],[-46.41,-2.37],[-46.46,-2.37],[-46.42,-2.29],[-46.43,-2.24],[-46.38,-2.25],[-46.28,-2.15],[-46.3,-2.14],[-46.27,-2.11],[-46.27,-2.06],[-46.22,-1.91],[-46.24,-1.88],[-46.21,-1.82],[-46.26,-1.79],[-46.31,-1.8],[-46.32,-1.77],[-46.3,-1.73],[-46.22,-1.73],[-46.15,-1.68],[-46.16,-1.62],[-46.13,-1.58],[-46.18,-1.48],[-46.14,-1.44],[-46.16,-1.42],[-46.1,-1.34],[-46.13,-1.33],[-46.16,-1.28],[-46.14,-1.25],[-46.15,-1.22],[-46.1,-1.2]],[[-47.03,-8.99],[-46.97,-8.91],[-46.99,-8.88],[-46.91,-8.85],[-46.9,-8.79],[-46.93,-8.73],[-46.89,-8.69],[-46.92,-8.65],[-46.9,-8.6],[-46.92,-8.6],[-46.85,-8.53],[-46.85,-8.48],[-46.8,-8.45],[-46.81,-8.4],[-46.79,-8.4],[-46.78,-8.37],[-46.73,-8.39],[-46.63,-8.32],[-46.54,-8.32],[-46.51,-8.27],[-46.49,-8.2],[-46.51,-8.17],[-46.47,-8.07],[-46.49,-7.98],[-46.6,-7.9],[-46.76,-7.92],[-46.84,-7.97],[-46.87,-7.96],[-46.95,-8.01],[-47.0,-8.07],[-47.04,-8.05],[-47.06,-8.0],[-47.11,-7.99],[-47.11,-7.94],[-47.14,-7.92],[-47.17,-7.86],[-47.24,-7.81],[-47.25,-7.76],[-47.31,-7.73],[-47.3,-7.69],[-47.34,-7.67],[-47.31,-7.66],[-47.36,-7.62],[-47.37,-7.62],[-47.35,-7.65],[-47.38,-7.65],[-47.38,-7.6],[-47.44,-7.56],[-47.43,-7.53],[-47.47,-7.53],[-47.5,-7.44],[-47.59,-7.44],[-47.49,-7.37],[-47.5,-7.29],[-47.59,-7.26],[-47.65,-7.3],[-47.75,-7.2],[-47.74,-7.16],[-47.72,-7.14],[-47.64,-7.14],[-47.53,-6.98],[-47.51,-6.9],[-47.53,-6.83],[-47.49,-6.75],[-47.5,-6.67],[-47.42,-6.48],[-47.43,-6.42],[-47.38,-6.27],[-47.43,-6.12],[-47.45,-5.99],[-47.43,-5.87],[-47.49,-5.73],[-47.47,-5.66],[-47.5,-5.53],[-47.55,-5.47],[-47.62,-5.46],[-47.74,-5.38],[-47.84,-5.38],[-47.89,-5.26],[-48.01,-5.24],[-48.08,-5.27],[-48.18,-5.26],[-48.36,-5.17],[-48.54,-5.2],[-48.61,-5.34],[-48.68,-5.31],[-48.71,-5.35],[-48.75,-5.35]],[[-46.04,-14.87],[-46.09,-14.94],[-46.16,-14.91],[-46.18,-14.95],[-46.23,-14.92],[-46.29,-14.93],[-46.32,-14.9],[-46.3,-14.86],[-46.32,-14.85],[-46.32,-14.81],[-46.5,-14.7],[-46.51,-14.74],[-46.57,-14.79],[-46.52,-14.85],[-46.55,-14.92],[-46.5,-15.05],[-46.63,-15.09],[-46.78,-15.02],[-46.86,-15.01],[-46.92,-15.05],[-46.93,-15.07],[-46.89,-15.11],[-46.94,-15.23],[-46.93,-15.25],[-46.89,-15.23],[-46.89,-15.28],[-46.84,-15.32],[-46.87,-15.36],[-46.85,-15.37],[-46.93,-15.44],[-46.95,-15.55],[-46.85,-15.62],[-46.81,-15.89],[-47.09,-15.96],[-47.13,-15.95],[-47.14,-15.93],[-47.22,-16.01],[-47.28,-16.01],[-47.31,-16.04]],[[-47.31,-16.04],[-47.38,-15.98],[-47.37,-15.83],[-47.31,-15.75],[-47.33,-15.63],[-47.32,-15.59],[-47.42,-15.55],[-47.42,-15.5],[-48.2,-15.5],[-48.2,-15.62],[-48.23,-15.64],[-48.24,-15.71],[-48.21,-15.72],[-48.21,-15.74],[-48.29,-15.84],[-48.28,-15.93],[-48.25,-15.94],[-48.28,-16.05],[-47.31,-16.05]],[[-47.21,-0.68],[-47.25,-0.7],[-47.19,-0.69]],[[-47.08,-0.72],[-47.09,-0.75],[-47.07,-0.74],[-47.07,-0.78],[-47.06,-0.73]],[[-47.05,-0.73],[-47.06,-0.81],[-47.03,-0.8],[-47.04,-0.73]],[[-45.95,-10.26],[-46.0,-10.26],[-46.03,-10.18],[-46.1,-10.21],[-46.16,-10.21],[-46.21,-10.17],[-46.37,-10.17],[-46.38,-10.12],[-46.46,-10.05],[-46.49,-9.83],[-46.51,-9.8],[-46.58,-9.8],[-46.58,-9.76],[-46.65,-9.73],[-46.65,-9.69],[-46.61,-9.67],[-46.59,-9.59],[-46.54,-9.56],[-46.58,-9.52],[-46.56,-9.48],[-46.63,-9.47],[-46.65,-9.44],[-46.63,-9.41],[-46.67,-9.39],[-46.76,-9.41],[-46.77,-9.37],[-46.85,-9.29],[-46.82,-9.26],[-46.82,-9.2],[-46.85,-9.19],[-46.85,-9.15],[-46.89,-9.12],[-46.93,-9.13],[-46.92,-9.07],[-47.01,-9.08],[-47.07,-9.06],[-47.04,-9.03],[-47.07,-9.01],[-47.03,-8.99]],[[-46.33,-1.04],[-46.35,-1.07],[-46.31,-1.08],[-46.33,-1.07],[-46.32,-1.04]],[[-46.22,-1.07],[-46.28,-1.17],[-46.21,-1.08]],[[-46.17,-1.07],[-46.2,-1.13],[-46.17,-1.15],[-46.18,-1.12],[-46.16,-1.08],[-46.15,-1.13]],[[-46.11,-12.92],[-46.3,-12.95],[-46.29,-12.86],[-46.26,-12.83],[-46.28,-12.78],[-46.26,-12.72],[-46.29,-12.69],[-46.26,-12.66],[-46.29,-12.63],[-46.28,-12.58],[-46.25,-12.55],[-46.16,-12.53],[-46.15,-12.48],[-46.25,-12.49],[-46.26,-12.42],[-46.3,-12.42],[-46.29,-12.38],[-46.35,-12.34],[-46.32,-12.3],[-46.37,-12.29],[-46.36,-12.22],[-46.39,-12.17],[-46.37,-12.11],[-46.4,-12.04],[-46.33,-11.96],[-46.19,-11.93],[-46.17,-11.9],[-46.19,-11.88],[-46.32,-11.9],[-46.37,-11.87],[-46.32,-11.77],[-46.37,-11.75],[-46.29,-11.69],[-46.31,-11.63],[-46.26,-11.62],[-46.15,-11.66],[-46.09,-11.64],[-46.09,-11.62],[-46.2,-11.6],[-46.24,-11.56],[-46.31,-11.54],[-46.41,-11.54],[-46.48,-11.52],[-46.52,-11.48],[-46.53,-11.42],[-46.6,-11.35],[-46.62,-11.29],[-46.61,-11.26],[-46.47,-11.19],[-46.4,-10.99],[-46.28,-10.91],[-46.29,-10.85],[-46.23,-10.79],[-46.23,-10.77],[-46.25,-10.76],[-46.19,-10.72],[-46.21,-10.65],[-46.17,-10.62],[-46.07,-10.6],[-46.02,-10.54],[-45.97,-10.53],[-45.89,-10.45],[-45.83,-10.44],[-45.82,-10.37],[-45.74,-10.34],[-45.7,-10.26],[-45.7,-10.17],[-45.72,-10.15]],[[-46.04,-14.87],[-46.05,-14.83],[-46.01,-14.79],[-46.0,-14.71],[-46.03,-14.68],[-45.99,-14.66],[-45.99,-14.54],[-45.98,-14.54],[-46.0,-14.52],[-46.02,-14.42],[-45.93,-14.41],[-45.91,-14.35],[-45.94,-14.34],[-46.0,-14.26],[-46.06,-14.23],[-46.06,-14.19],[-46.1,-14.21],[-46.12,-14.16],[-46.19,-14.15],[-46.2,-14.12],[-46.27,-14.1],[-46.22,-14.07],[-46.25,-14.06],[-46.21,-14.01],[-46.22,-13.97],[-46.27,-13.94],[-46.23,-13.85],[-46.28,-13.8],[-46.22,-13.77],[-46.27,-13.74],[-46.24,-13.71],[-46.26,-13.69],[-46.16,-13.59],[-46.24,-13.56],[-46.23,-13.48],[-46.21,-13.46],[-46.24,-13.43],[-46.05,-13.31],[-46.04,-13.27],[-46.06,-13.26],[-46.28,-13.35],[-46.32,-13.3],[-46.3,-13.25],[-46.33,-13.25],[-46.29,-13.15],[-46.32,-13.1],[-46.27,-13.01],[-46.13,-12.96],[-46.11,-12.92]],[[-40.22,-17.98],[-40.26,-17.92],[-40.17,-17.85],[-40.22,-17.8],[-40.22,-17.73],[-40.28,-17.72],[-40.35,-17.61],[-40.35,-17.64],[-40.37,-17.61],[-40.41,-17.61],[-40.41,-17.57],[-40.46,-17.57],[-40.48,-17.49],[-40.52,-17.45],[-40.62,-17.41],[-40.6,-17.39],[-40.61,-17.33],[-40.55,-17.28],[-40.57,-17.25],[-40.55,-17.2],[-40.58,-17.15],[-40.56,-17.09],[-40.57,-17.06],[-40.49,-16.88],[-40.41,-16.9],[-40.37,-16.87],[-40.33,-16.91],[-40.28,-16.9],[-40.25,-16.85],[-40.26,-16.81],[-40.35,-16.79],[-40.31,-16.74],[-40.28,-16.57],[-40.23,-16.56],[-40.16,-16.58],[-40.17,-16.52],[-40.1,-16.42],[-40.08,-16.46],[-40.07,-16.46],[-39.99,-16.31],[-39.97,-16.33],[-39.92,-16.28],[-39.94,-16.24],[-39.88,-16.19],[-39.9,-16.14],[-39.86,-16.11],[-39.94,-16.02],[-39.92,-16.0],[-40.0,-16.0],[-40.07,-15.96],[-40.08,-15.9],[-40.17,-15.91],[-40.17,-15.87],[-40.2,-15.86],[-40.23,-15.8],[-40.38,-15.82],[-40.42,-15.81],[-40.46,-15.75],[-40.56,-15.8],[-40.61,-15.74],[-40.63,-15.72],[-40.64,-15.73],[-40.7,-15.67],[-40.77,-15.71],[-40.82,-15.65],[-40.88,-15.69],[-40.96,-15.65],[-41.0,-15.71],[-41.08,-15.72],[-41.14,-15.77],[-41.21,-15.74],[-41.33,-15.74],[-41.36,-15.5],[-41.8,-15.1],[-41.87,-15.12],[-41.93,-15.17],[-42.0,-15.16],[-42.09,-15.19],[-42.17,-15.09],[-42.26,-15.12],[-42.33,-15.08],[-42.35,-15.1],[-42.38,-15.07],[-42.44,-15.06],[-42.44,-15.02],[-42.48,-15.02],[-42.59,-14.93],[-42.62,-14.94],[-42.72,-14.89],[-42.93,-14.74],[-42.94,-14.71],[-43.07,-14.68],[-43.08,-14.7],[-43.18,-14.65],[-43.31,-14.67],[-43.43,-14.72],[-43.48,-14.77],[-43.47,-14.79],[-43.53,-14.81],[-43.58,-14.75],[-43.72,-14.73],[-43.73,-14.7],[-43.88,-14.65],[-43.87,-14.52],[-43.78,-14.34],[-43.89,-14.3],[-43.94,-14.3],[-43.99,-14.27],[-44.03,-14.29],[-44.11,-14.26],[-44.14,-14.28],[-44.21,-14.23],[-44.25,-14.26],[-44.32,-14.24],[-44.49,-14.33],[-44.57,-14.34],[-44.66,-14.4],[-44.67,-14.42],[-44.69,-14.42],[-44.7,-14.45],[-44.83,-14.5],[-44.82,-14.54],[-44.86,-14.57],[-44.84,-14.58],[-45.04,-14.68],[-45.08,-14.75],[-45.21,-14.74],[-45.29,-14.83],[-45.32,-14.83],[-45.45,-14.95],[-45.57,-14.94],[-45.72,-15.11],[-45.82,-15.12],[-45.87,-15.16],[-45.95,-15.14],[-45.98,-15.2],[-46.03,-15.2],[-46.05,-15.26],[-46.08,-15.26],[-46.12,-15.19],[-46.05,-15.17],[-46.04,-15.12],[-45.98,-15.04],[-45.97,-14.97],[-46.04,-14.87]],[[-45.72,-10.15],[-45.73,-10.23],[-45.79,-10.27],[-45.88,-10.24],[-45.95,-10.26]],[[-41.82,-2.76],[-41.85,-2.77],[-41.84,-2.82],[-41.87,-2.87],[-41.8,-2.97],[-41.82,-3.02],[-41.92,-3.11],[-41.94,-3.19],[-41.96,-3.18],[-42.01,-3.25],[-42.12,-3.26],[-42.13,-3.29],[-42.1,-3.31],[-42.15,-3.39],[-42.19,-3.4],[-42.2,-3.44],[-42.3,-3.45],[-42.33,-3.43],[-42.39,-3.45],[-42.41,-3.47],[-42.43,-3.45],[-42.46,-3.49],[-42.5,-3.45],[-42.57,-3.57],[-42.61,-3.59],[-42.68,-3.68],[-42.67,-3.79],[-42.73,-3.91],[-42.8,-4.0],[-42.82,-3.99],[-42.86,-4.09],[-42.9,-4.12],[-42.89,-4.16],[-42.94,-4.16],[-42.99,-4.23],[-42.96,-4.38],[-42.89,-4.41],[-42.85,-4.48],[-42.87,-4.58],[-42.95,-4.69],[-42.92,-4.74],[-42.95,-4.79],[-42.9,-4.84],[-42.9,-4.89],[-42.85,-4.94],[-42.8,-5.18],[-42.83,-5.23],[-42.83,-5.35],[-42.96,-5.45],[-43.03,-5.59],[-43.08,-5.6],[-43.1,-5.63],[-43.08,-5.73],[-43.1,-5.77],[-43.1,-5.83],[-43.08,-5.86],[-43.1,-5.9],[-43.05,-5.99],[-43.07,-6.05],[-43.05,-6.1],[-42.98,-6.13],[-42.97,-6.18],[-42.87,-6.23],[-42.85,-6.28],[-42.86,-6.33],[-42.83,-6.34],[-42.88,-6.42],[-42.87,-6.51],[-42.92,-6.67],[-43.0,-6.75],[-43.08,-6.75],[-43.15,-6.78],[-43.24,-6.77],[-43.42,-6.84],[-43.48,-6.83],[-43.56,-6.75],[-43.72,-6.7],[-43.79,-6.7],[-43.93,-6.77],[-43.96,-6.74],[-44.03,-6.76],[-44.07,-6.82],[-44.11,-6.8],[-44.1,-6.85],[-44.12,-6.83],[-44.24,-7.0],[-44.26,-7.0],[-44.31,-7.12],[-44.38,-7.12],[-44.56,-7.23],[-44.62,-7.31],[-44.66,-7.33],[-44.69,-7.39],[-44.73,-7.39],[-44.74,-7.36],[-44.78,-7.38],[-44.82,-7.36],[-44.92,-7.47],[-45.04,-7.51],[-45.16,-7.51],[-45.22,-7.57],[-45.23,-7.55],[-45.34,-7.58],[-45.37,-7.62],[-45.39,-7.61],[-45.43,-7.68],[-45.46,-7.67],[-45.5,-7.75],[-45.49,-7.79],[-45.54,-7.86],[-45.52,-7.91],[-45.56,-7.95],[-45.57,-8.0],[-45.55,-8.01],[-45.58,-8.03],[-45.56,-8.05],[-45.58,-8.16],[-45.66,-8.25],[-45.69,-8.36],[-45.73,-8.42],[-45.76,-8.56],[-45.79,-8.58],[-45.77,-8.61],[-45.82,-8.63],[-45.84,-8.71],[-45.93,-8.78],[-45.99,-8.93],[-45.94,-9.01],[-45.93,-9.14],[-45.9,-9.19],[-45.89,-9.34],[-45.82,-9.37],[-45.78,-9.48],[-45.84,-9.56],[-45.82,-9.62],[-45.84,-9.7],[-45.82,-9.77],[-45.87,-9.87],[-45.84,-9.94],[-45.88,-10.11],[-45.95,-10.22],[-45.95,-10.26]],[[-45.73,-1.34],[-45.71,-1.31],[-45.69,-1.32],[-45.68,-1.34],[-45.74,-1.38],[-45.7,-1.36],[-45.72,-1.4],[-45.69,-1.4],[-45.69,-1.37],[-45.63,-1.37],[-45.62,-1.3]],[[-45.72,-10.15],[-45.6,-10.11],[-45.57,-10.14],[-45.57,-10.2],[-45.53,-10.24],[-45.52,-10.29],[-45.43,-10.36],[-45.42,-10.43],[-45.4,-10.45],[-45.45,-10.51],[-45.45,-10.56],[-45.44,-10.62],[-45.37,-10.67],[-45.36,-10.73],[-45.27,-10.77],[-45.25,-10.82],[-45.07,-10.84],[-44.93,-10.93],[-44.86,-10.89],[-44.85,-10.9],[-44.75,-10.78],[-44.67,-10.76],[-44.67,-10.69],[-44.59,-10.63],[-44.5,-10.65],[-44.45,-10.61],[-44.4,-10.61],[-44.34,-10.55],[-44.26,-10.62],[-44.21,-10.61],[-44.15,-10.64],[-44.07,-10.58],[-44.02,-10.4],[-43.92,-10.42],[-43.91,-10.38],[-43.84,-10.3],[-43.84,-10.25],[-43.78,-10.18],[-43.77,-10.08],[-43.69,-10.08],[-43.66,-10.0],[-43.7,-9.97],[-43.69,-9.93],[-43.71,-9.91],[-43.65,-9.84],[-43.78,-9.76],[-43.8,-9.69],[-43.84,-9.64],[-43.85,-9.55],[-43.77,-9.44],[-43.69,-9.42],[-43.57,-9.32],[-43.46,-9.26],[-43.28,-9.42],[-43.22,-9.4],[-43.19,-9.42],[-43.16,-9.38],[-43.12,-9.37],[-43.06,-9.4],[-43.06,-9.42],[-42.99,-9.4],[-42.96,-9.43],[-42.95,-9.52],[-42.87,-9.56],[-42.84,-9.55],[-42.82,-9.62],[-42.76,-9.62],[-42.72,-9.53],[-42.62,-9.54],[-42.59,-9.5],[-42.49,-9.49],[-42.49,-9.46],[-42.44,-9.46],[-42.32,-9.32],[-42.24,-9.29],[-42.1,-9.28],[-42.02,-9.25],[-41.92,-9.28],[-41.87,-9.24],[-41.84,-9.24],[-41.8,-9.15],[-41.73,-9.09],[-41.72,-9.01],[-41.68,-9.01],[-41.61,-8.96],[-41.54,-8.96],[-41.49,-8.84],[-41.42,-8.8],[-41.38,-8.71],[-41.36,-8.71]],[[-45.64,-1.31],[-45.63,-1.35],[-45.7,-1.36],[-45.67,-1.35],[-45.68,-1.3]],[[-41.87,-20.77],[-41.93,-20.79],[-41.93,-20.84],[-41.98,-20.94],[-42.09,-20.94],[-42.15,-20.97],[-42.08,-21.04],[-42.1,-21.03],[-42.14,-21.1],[-42.16,-21.1],[-42.21,-21.18],[-42.19,-21.25],[-42.23,-21.28],[-42.24,-21.4],[-42.28,-21.41],[-42.29,-21.46],[-42.25,-21.49],[-42.37,-21.62],[-42.36,-21.65],[-42.27,-21.68],[-42.27,-21.71],[-42.88,-21.96],[-43.04,-22.05],[-43.03,-22.07],[-43.07,-22.09],[-43.11,-22.08],[-43.14,-22.11],[-43.15,-22.08],[-43.13,-22.03],[-43.2,-22.04],[-43.25,-22.01],[-43.35,-22.0],[-43.46,-22.07],[-43.51,-22.06],[-43.56,-22.09],[-43.59,-22.05],[-43.61,-22.08],[-43.65,-22.07],[-43.67,-22.09],[-43.69,-22.07],[-43.73,-22.1],[-43.77,-22.06],[-44.0,-22.16],[-44.1,-22.17],[-44.12,-22.21],[-44.24,-22.27],[-44.29,-22.24],[-44.39,-22.27],[-44.46,-22.26],[-44.53,-22.33],[-44.59,-22.32],[-44.66,-22.38],[-44.72,-22.36],[-44.81,-22.4]],[[-44.76,-23.35],[-44.89,-23.22],[-44.87,-23.18],[-44.82,-23.16],[-44.79,-22.98],[-44.49,-22.85],[-44.47,-22.88],[-44.41,-22.85],[-44.27,-22.83],[-44.24,-22.79],[-44.25,-22.76],[-44.16,-22.68],[-44.23,-22.6],[-44.34,-22.59],[-44.36,-22.61],[-44.36,-22.58],[-44.38,-22.57],[-44.41,-22.61],[-44.49,-22.61],[-44.51,-22.64],[-44.55,-22.61],[-44.57,-22.6],[-44.58,-22.63],[-44.63,-22.61],[-44.64,-22.56],[-44.68,-22.56],[-44.68,-22.53],[-44.72,-22.51],[-44.74,-22.43],[-44.81,-22.4]],[[-44.76,-1.58],[-44.76,-1.63],[-44.73,-1.57]],[[-44.75,-1.79],[-44.81,-1.81],[-44.75,-1.79]],[[-44.62,-23.24],[-44.66,-23.3],[-44.61,-23.25]],[[-43.32,-22.99],[-43.36,-22.97],[-43.41,-22.99],[-43.35,-22.99]],[[-40.98,-21.28],[-41.09,-21.22],[-41.16,-21.25],[-41.24,-21.22],[-41.28,-21.24],[-41.38,-21.2],[-41.45,-21.21],[-41.48,-21.18],[-41.57,-21.18],[-41.59,-21.15],[-41.72,-21.12],[-41.71,-21.11],[-41.74,-21.1],[-41.71,-20.99],[-41.74,-20.93],[-41.71,-20.87],[-41.74,-20.87],[-41.76,-20.81],[-41.81,-20.8],[-41.87,-20.77]],[[-41.87,-20.77],[-41.86,-20.71],[-41.81,-20.64],[-41.86,-20.61],[-41.8,-20.54],[-41.8,-20.43],[-41.86,-20.37],[-41.85,-20.33],[-41.78,-20.29],[-41.76,-20.21],[-41.41,-20.21],[-41.38,-20.19],[-41.31,-20.01],[-41.31,-19.95],[-41.24,-19.94],[-41.18,-19.89],[-41.17,-19.79],[-41.19,-19.75],[-41.17,-19.67],[-41.04,-19.57],[-41.05,-19.49],[-40.97,-19.5],[-40.94,-19.46],[-40.97,-19.43],[-40.91,-19.31],[-40.94,-19.28],[-40.92,-19.27],[-40.94,-19.23],[-40.93,-19.19],[-40.96,-19.12],[-41.05,-19.07],[-41.07,-19.02],[-41.02,-18.97],[-41.1,-18.93],[-41.17,-18.86],[-41.21,-18.85],[-41.21,-18.88],[-41.24,-18.84],[-41.23,-18.8],[-41.13,-18.8],[-41.1,-18.84],[-40.96,-18.84],[-40.92,-18.81],[-40.94,-18.69],[-41.05,-18.63],[-41.03,-18.62],[-41.02,-18.46],[-41.18,-18.44],[-41.14,-18.41],[-41.16,-18.39],[-41.15,-18.37],[-41.16,-18.31],[-41.1,-18.26],[-41.1,-18.21],[-41.06,-18.17],[-40.99,-18.17],[-40.99,-18.15],[-40.95,-18.15],[-40.95,-18.13],[-40.89,-18.11],[-40.85,-18.15],[-40.77,-18.16],[-40.77,-18.11],[-40.9,-17.99],[-40.88,-17.97],[-40.86,-17.99],[-40.83,-17.95],[-40.7,-18.02],[-40.63,-17.99],[-40.61,-17.94],[-40.53,-17.89],[-40.46,-17.93],[-40.33,-17.93],[-40.22,-17.98]],[[-41.36,-8.71],[-41.28,-8.74],[-41.23,-8.7],[-41.11,-8.7],[-41.12,-8.75],[-41.1,-8.78],[-41.04,-8.79],[-41.02,-8.84],[-40.98,-8.82],[-40.92,-8.84],[-40.85,-8.95],[-40.8,-9.1],[-40.67,-9.16],[-40.69,-9.28],[-40.76,-9.31],[-40.74,-9.4],[-40.78,-9.45],[-40.72,-9.45],[-40.62,-9.48],[-40.56,-9.46],[-40.53,-9.41],[-40.47,-9.42],[-40.42,-9.35],[-40.36,-9.38],[-40.31,-9.27],[-40.29,-9.12],[-40.25,-9.06],[-40.13,-9.11],[-40.07,-9.06],[-39.96,-9.05],[-39.87,-8.93],[-39.89,-8.83],[-39.69,-8.8],[-39.67,-8.78],[-39.69,-8.66],[-39.61,-8.66],[-39.38,-8.53],[-39.28,-8.57],[-39.22,-8.71],[-39.17,-8.69],[-39.03,-8.74],[-38.95,-8.8],[-38.8,-8.79],[-38.71,-8.86],[-38.69,-8.95],[-38.64,-8.99],[-38.57,-8.83],[-38.48,-8.85],[-38.47,-8.89],[-38.52,-8.95],[-38.48,-9.0],[-38.41,-9.04],[-38.32,-8.99],[-38.3,-9.02],[-38.29,-9.05],[-38.33,-9.08],[-38.3,-9.1],[-38.32,-9.14],[-38.29,-9.17],[-38.24,-9.33]],[[-41.36,-8.71],[-41.22,-8.65],[-41.21,-8.6],[-41.17,-8.58],[-41.15,-8.53],[-41.1,-8.52],[-41.08,-8.47],[-41.05,-8.48],[-41.04,-8.43],[-41.0,-8.4],[-40.93,-8.45],[-40.89,-8.36],[-40.84,-8.38],[-40.82,-8.32],[-40.78,-8.3],[-40.78,-8.25],[-40.71,-8.22],[-40.63,-8.14],[-40.59,-8.14],[-40.6,-8.1],[-40.54,-7.96],[-40.54,-7.84],[-40.67,-7.76],[-40.64,-7.61],[-40.71,-7.47],[-40.55,-7.39]],[[-40.55,-7.39],[-40.54,-7.33],[-40.51,-7.3],[-40.49,-7.12],[-40.43,-7.03],[-40.44,-7.02],[-40.41,-7.0],[-40.43,-6.99],[-40.43,-6.86],[-40.37,-6.8],[-40.43,-6.81],[-40.48,-6.73],[-40.61,-6.71],[-40.73,-6.65],[-40.72,-6.62],[-40.79,-6.51],[-40.8,-6.39],[-40.78,-6.32],[-40.85,-6.22],[-40.85,-6.13],[-40.87,-6.06],[-40.91,-6.04],[-40.87,-5.97],[-40.94,-5.67],[-40.9,-5.62],[-40.93,-5.55],[-40.92,-5.47],[-40.94,-5.42],[-40.91,-5.41],[-40.94,-5.37],[-40.91,-5.32],[-40.91,-5.27],[-40.94,-5.24],[-40.92,-5.23],[-40.93,-5.18],[-41.03,-5.09],[-41.05,-5.1],[-41.1,-5.05],[-41.13,-5.05],[-41.14,-4.98],[-41.22,-4.94],[-41.25,-4.87],[-41.21,-4.78],[-41.25,-4.76],[-41.17,-4.67],[-41.23,-4.62],[-41.22,-4.58],[-41.24,-4.57],[-41.19,-4.52],[-41.16,-4.38],[-41.12,-4.33],[-41.14,-4.23],[-41.09,-4.17],[-41.14,-4.12],[-41.11,-4.04],[-41.18,-4.02],[-41.25,-4.04],[-41.22,-3.94],[-41.28,-3.83],[-41.3,-3.83],[-41.25,-3.77],[-41.24,-3.71],[-41.34,-3.68],[-41.33,-3.62],[-41.37,-3.57],[-41.34,-3.55],[-41.32,-3.5],[-41.3,-3.49],[-41.33,-3.49],[-41.35,-3.41],[-41.39,-3.41],[-41.4,-3.36],[-41.42,-3.37],[-41.32,-3.14],[-41.26,-3.09],[-41.26,-3.0],[-41.32,-2.94]],[[-38.71,-7.62],[-38.74,-7.66],[-38.82,-7.66],[-38.83,-7.72],[-38.87,-7.71],[-38.88,-7.75],[-38.94,-7.76],[-38.97,-7.84],[-39.02,-7.81],[-39.09,-7.86],[-39.1,-7.77],[-39.14,-7.72],[-39.21,-7.69],[-39.25,-7.7],[-39.27,-7.66],[-39.31,-7.66],[-39.28,-7.61],[-39.32,-7.54],[-39.66,-7.31],[-39.92,-7.34],[-39.96,-7.39],[-40.25,-7.43],[-40.27,-7.39],[-40.32,-7.37],[-40.55,-7.39]],[[-39.68,-18.32],[-40.22,-17.98]],[[-38.56,-6.36],[-38.6,-6.39],[-38.52,-6.41],[-38.61,-6.51],[-38.67,-6.7],[-38.62,-6.79],[-38.64,-6.79],[-38.68,-6.86],[-38.76,-6.91],[-38.74,-6.97],[-38.76,-6.99],[-38.67,-7.05],[-38.66,-7.09],[-38.69,-7.19],[-38.63,-7.19],[-38.59,-7.25],[-38.55,-7.24],[-38.53,-7.29],[-38.6,-7.41],[-38.58,-7.43],[-38.64,-7.46],[-38.63,-7.48],[-38.65,-7.57],[-38.71,-7.59],[-38.71,-7.62]],[[-34.85,-7.54],[-34.96,-7.54],[-34.99,-7.46],[-35.08,-7.4],[-35.19,-7.4],[-35.24,-7.37],[-35.33,-7.41],[-35.35,-7.44],[-35.42,-7.47],[-35.48,-7.44],[-35.5,-7.46],[-35.5,-7.51],[-35.54,-7.58],[-35.51,-7.58],[-35.53,-7.65],[-35.61,-7.65],[-35.65,-7.7],[-35.87,-7.75],[-35.9,-7.79],[-35.97,-7.79],[-36.0,-7.81],[-36.07,-7.78],[-36.2,-7.79],[-36.22,-7.76],[-36.26,-7.83],[-36.3,-7.81],[-36.42,-7.82],[-36.45,-7.92],[-36.55,-7.9],[-36.58,-7.91],[-36.58,-7.96],[-36.61,-7.95],[-36.63,-8.06],[-36.66,-8.08],[-36.63,-8.11],[-36.99,-8.3],[-37.09,-8.26],[-37.12,-8.17],[-37.16,-8.17],[-37.14,-8.12],[-37.15,-8.02],[-37.19,-7.96],[-37.36,-7.97],[-37.35,-7.95],[-37.31,-7.93],[-37.32,-7.91],[-37.24,-7.87],[-37.25,-7.85],[-37.22,-7.84],[-37.24,-7.82],[-37.15,-7.78],[-37.14,-7.75],[-37.19,-7.65],[-37.17,-7.58],[-37.12,-7.54],[-36.98,-7.48],[-37.02,-7.43],[-37.03,-7.39],[-37.16,-7.34],[-37.23,-7.27],[-37.33,-7.29],[-37.35,-7.34],[-37.39,-7.36],[-37.5,-7.37],[-37.49,-7.39],[-37.53,-7.47],[-37.71,-7.55],[-37.76,-7.62],[-37.74,-7.66],[-37.75,-7.67],[-37.78,-7.63],[-37.86,-7.65],[-37.97,-7.78],[-38.04,-7.75],[-38.07,-7.77],[-38.08,-7.83],[-38.16,-7.78],[-38.24,-7.83],[-38.29,-7.83],[-38.3,-7.76],[-38.32,-7.76],[-38.31,-7.72],[-38.36,-7.68],[-38.41,-7.73],[-38.46,-7.72],[-38.5,-7.75],[-38.59,-7.75],[-38.64,-7.68],[-38.71,-7.62]],[[-38.56,-6.36],[-38.46,-6.33],[-38.49,-6.36],[-38.49,-6.4],[-38.4,-6.41],[-38.37,-6.46],[-38.33,-6.46],[-38.29,-6.51],[-38.24,-6.48],[-38.15,-6.49],[-38.12,-6.52],[-38.05,-6.44],[-38.04,-6.47],[-38.01,-6.47],[-38.01,-6.43],[-37.96,-6.4],[-37.93,-6.42],[-37.89,-6.4],[-37.89,-6.36],[-37.84,-6.36],[-37.81,-6.29],[-37.76,-6.29],[-37.78,-6.25],[-37.75,-6.19],[-37.46,-6.14],[-37.45,-6.11],[-37.39,-6.11],[-37.25,-6.03],[-37.17,-6.05],[-37.17,-6.17],[-37.25,-6.23],[-37.27,-6.28],[-37.32,-6.28],[-37.36,-6.32],[-37.4,-6.4],[-37.4,-6.51],[-37.48,-6.55],[-37.47,-6.66],[-37.48,-6.71],[-37.28,-6.69],[-37.27,-6.77],[-37.23,-6.82],[-37.19,-6.82],[-37.13,-6.77],[-37.0,-6.71],[-36.98,-6.72],[-36.96,-6.79],[-36.83,-6.73],[-36.77,-6.79],[-36.77,-6.84],[-36.73,-6.84],[-36.77,-6.94],[-36.72,-6.98],[-36.69,-6.93],[-36.61,-6.94],[-36.57,-6.85],[-36.51,-6.81],[-36.5,-6.76],[-36.56,-6.71],[-36.52,-6.6],[-36.46,-6.63],[-36.44,-6.63],[-36.44,-6.56],[-36.53,-6.5],[-36.53,-6.45],[-36.5,-6.36],[-36.43,-6.36],[-36.39,-6.29],[-36.36,-6.31],[-36.31,-6.28],[-36.28,-6.31],[-36.3,-6.39],[-36.25,-6.4],[-36.25,-6.44],[-36.11,-6.43],[-36.08,-6.4],[-35.98,-6.49],[-35.77,-6.48],[-35.66,-6.45],[-35.56,-6.49],[-35.44,-6.48],[-35.33,-6.54],[-35.22,-6.52],[-35.17,-6.56],[-35.1,-6.5],[-35.06,-6.53],[-34.99,-6.5]],[[-37.27,-4.84],[-37.64,-4.93],[-37.68,-5.05],[-37.72,-5.07],[-37.76,-5.14],[-37.79,-5.21],[-37.78,-5.29],[-37.85,-5.34],[-37.9,-5.5],[-37.99,-5.56],[-38.03,-5.64],[-38.08,-5.67],[-38.09,-5.73],[-38.05,-5.73],[-38.12,-5.83],[-38.12,-5.89],[-38.16,-5.95],[-38.24,-6.0],[-38.28,-6.07],[-38.3,-6.09],[-38.35,-6.07],[-38.36,-6.09],[-38.4,-6.05],[-38.45,-6.08],[-38.5,-6.19],[-38.53,-6.19],[-38.53,-6.24],[-38.58,-6.28],[-38.56,-6.36]],[[-38.24,-9.33],[-38.18,-9.29],[-38.09,-9.17],[-37.98,-9.15],[-37.84,-8.98],[-37.83,-8.89],[-37.76,-8.86],[-37.68,-8.97],[-37.7,-8.99],[-37.66,-8.99],[-37.64,-9.02],[-37.58,-8.97],[-37.49,-8.97],[-37.47,-9.03],[-37.32,-9.09],[-37.24,-9.19],[-37.23,-9.24],[-37.2,-9.22],[-37.16,-9.24],[-37.16,-9.28],[-37.11,-9.24],[-37.06,-9.28],[-37.06,-9.32],[-37.02,-9.32],[-36.95,-9.38],[-36.93,-9.37],[-36.92,-9.3],[-36.87,-9.27],[-36.8,-9.29],[-36.69,-9.27],[-36.6,-9.34],[-36.57,-9.33],[-36.57,-9.29],[-36.5,-9.27],[-36.44,-9.21],[-36.37,-9.22],[-36.31,-9.17],[-36.22,-9.17],[-36.27,-9.1],[-36.24,-9.1],[-36.2,-9.04],[-36.11,-9.02],[-36.13,-8.96],[-36.06,-8.91],[-35.96,-8.9],[-35.9,-8.85],[-35.84,-8.87],[-35.79,-8.85],[-35.78,-8.9],[-35.75,-8.92],[-35.63,-8.88],[-35.53,-8.82],[-35.47,-8.81],[-35.45,-8.84],[-35.17,-8.89]],[[-38.0,-9.51],[-38.01,-9.48],[-38.08,-9.44],[-38.15,-9.44],[-38.2,-9.42],[-38.19,-9.39],[-38.24,-9.33]],[[-38.0,-9.51],[-38.04,-9.6],[-37.99,-9.65],[-38.04,-9.69],[-38.04,-9.72],[-38.03,-9.78],[-37.97,-9.82],[-38.0,-9.92],[-37.96,-9.97],[-37.83,-10.0],[-37.78,-10.14],[-37.74,-10.33],[-37.84,-10.38],[-37.86,-10.43],[-37.81,-10.51],[-37.84,-10.55],[-37.81,-10.69],[-38.0,-10.76],[-38.02,-10.76],[-38.06,-10.71],[-38.21,-10.71],[-38.25,-10.82],[-38.23,-10.92],[-38.18,-10.94],[-38.18,-10.98],[-38.11,-11.02],[-38.06,-11.16],[-37.97,-11.19],[-38.0,-11.29],[-37.98,-11.39],[-37.94,-11.42],[-37.93,-11.4],[-37.9,-11.44],[-37.87,-11.43],[-37.88,-11.43],[-37.85,-11.44],[-37.86,-11.46],[-37.81,-11.5],[-37.81,-11.51],[-37.73,-11.55],[-37.7,-11.54],[-37.69,-11.57],[-37.65,-11.52],[-37.59,-11.53],[-37.58,-11.55],[-37.52,-11.55],[-37.36,-11.45]],[[-36.4,-10.49],[-36.46,-10.41],[-36.51,-10.43],[-36.56,-10.42],[-36.57,-10.32],[-36.62,-10.26],[-36.7,-10.27],[-36.84,-10.2],[-36.85,-10.16],[-36.92,-10.13],[-36.97,-9.99],[-36.99,-9.98],[-37.05,-9.99],[-37.15,-9.9],[-37.24,-9.89],[-37.35,-9.79],[-37.58,-9.73],[-37.71,-9.63],[-37.78,-9.64],[-37.89,-9.54],[-38.0,-9.51]]]};
+
+map.createPane("stateBorders");
+map.getPane("stateBorders").style.zIndex = 250;
+map.getPane("stateBorders").style.pointerEvents = "none";
+L.geoJSON(STATE_BORDERS, {
+  pane: "stateBorders",
+  interactive: false,
+  style: { className: "state-border", weight: 0.8, fill: false, lineJoin: "round" }
+}).addTo(map);
+
+const cameraIcon = L.divIcon({
+  className: "pin-wrap",
+  html: '<div class="camera-pin"><span>▶</span></div>',
+  iconSize: [34, 42],
+  iconAnchor: [17, 40],
+  popupAnchor: [0, -38]
+});
+
+const clusters = L.markerClusterGroup({
+  showCoverageOnHover: false,
+  spiderfyOnMaxZoom: true,
+  maxClusterRadius: 42,
+  iconCreateFunction: function (cluster) {
+    return L.divIcon({
+      html: '<div>' + cluster.getChildCount() + '</div>',
+      className: "cluster",
+      iconSize: [48, 48]
+    });
+  }
+});
+
+map.addLayer(clusters);
+
+
+// ==========================================
+// MOLA (spring) — interrompível, parte do valor atual
+// ==========================================
+
+const spring = { x: 0, v: 0, raf: 0, active: false };
+
+function rubberband(over, dim, c) {
+  c = c || 0.55;
+  return (over * dim * c) / (dim + c * Math.abs(over));
+}
+
+function project(v, rate) {
+  rate = rate || 0.998;
+  return (v / 1000) * rate / (1 - rate);
+}
+
+function setPos(x) {
+  if (!isFinite(x)) x = targetPos();
+  panel.style.transform = isMobile()
+    ? "translate3d(0," + x + "px,0)"
+    : "translate3d(" + x + "px,0,0)";
+}
+
+function springTo(target, opts) {
+  opts = opts || {};
+  cancelAnimationFrame(spring.raf);
+  if (!isFinite(target)) target = targetPos();
+  if (typeof opts.velocity === "number") spring.v = opts.velocity;
+  if (!isFinite(spring.x)) spring.x = target;
+  if (!isFinite(spring.v)) spring.v = 0;
+
+  if (mqReduce.matches) {
+    spring.active = false;
+    spring.x = target; spring.v = 0; setPos(target);
+    return;
+  }
+  spring.active = true;
+
+  const response = opts.response || 0.4;
+  const damping = opts.damping == null ? 1 : opts.damping;
+  const w = 2 * Math.PI / response;
+  const k = w * w;
+  const c = 2 * damping * w;
+  let last = performance.now();
+
+  const step = (now) => {
+    const dt = Math.min((now - last) / 1000, 1 / 20);
+    last = now;
+    const n = Math.max(1, Math.ceil(dt * 240));
+    const h = dt / n;
+    for (let i = 0; i < n; i++) {
+      const a = -k * (spring.x - target) - c * spring.v;
+      spring.v += a * h;
+      spring.x += spring.v * h;
+    }
+    setPos(spring.x);
+    if (Math.abs(spring.x - target) < 0.4 && Math.abs(spring.v) < 8) {
+      spring.x = target; spring.v = 0; setPos(target);
+      spring.active = false;
+      return;
+    }
+    spring.raf = requestAnimationFrame(step);
+  };
+  spring.raf = requestAnimationFrame(step);
+}
+
+
+// ==========================================
+// PAINEL: gaveta no celular, recolhível no desktop
+// ==========================================
+
+let snap = "peek";        // celular: peek | half | full
+let panelOpen = true;     // desktop
+
+function metrics() {
+  const padB = parseFloat(getComputedStyle(panel).paddingBottom) || 0;
+  return { H: panel.offsetHeight, peekVis: grab.offsetHeight + tools.offsetHeight + 10 + padB };
+}
+
+function snapPositions() {
+  const m = metrics();
+  return {
+    full: 0,
+    half: Math.max(0, m.H - innerHeight * 0.5),
+    peek: Math.max(0, m.H - m.peekVis),
+    hidden: m.H + 24
+  };
+}
+
+const closedX = () => -(panel.offsetWidth + 24);
+const targetPos = () => isMobile() ? snapPositions()[snap] : (panelOpen ? 0 : closedX());
+
+function syncCollapsed() {
+  const collapsed = isMobile() ? snap === "hidden" : !panelOpen;
+  document.body.classList.toggle("collapsed", collapsed);
+  panel.inert = collapsed;
+  $("fab").inert = !collapsed;
+  document.documentElement.style.setProperty("--peek", (isMobile() && snap === "hidden" ? 0 : metrics().peekVis) + "px");
+}
+
+function applyLayoutNow() {
+  cancelAnimationFrame(spring.raf);
+  spring.active = false;
+  spring.x = targetPos(); spring.v = 0;
+  setPos(spring.x);
+  syncCollapsed();
+}
+
+function goSnap(name, opts) {
+  snap = name;
+  syncCollapsed();
+  springTo(snapPositions()[name], Object.assign({ response: 0.35, damping: 1 }, opts || {}));
+}
+
+function setPanelOpen(open) {
+  panelOpen = open;
+  syncCollapsed();
+  springTo(open ? 0 : closedX(), { response: 0.42, damping: 1 });
+  if (!open) $("fab").focus({ preventScroll: true });
+}
+
+// Reage já ao soltar o dedo (pointerup); "click" continua valendo para mouse e teclado.
+function onTap(el, fn) {
+  let last = 0;
+  const run = () => {
+    const n = performance.now();
+    if (n - last < 400) return;
+    last = n;
+    fn();
+  };
+  el.addEventListener("pointerup", (e) => {
+    if (e.pointerType === "mouse") return;
+    const r = el.getBoundingClientRect();
+    const m = 10;
+    if (e.clientX < r.left - m || e.clientX > r.right + m || e.clientY < r.top - m || e.clientY > r.bottom + m) return;
+    run();
+  });
+  el.addEventListener("click", run);
+}
+
+onTap($("collapse"), () => {
+  if (isMobile()) {
+    if (document.activeElement === searchEl) searchEl.blur();
+    goSnap("hidden", { velocity: 0 });
+    $("fab").focus({ preventScroll: true });
+  } else {
+    setPanelOpen(false);
+  }
+});
+onTap($("fab"), () => {
+  if (isMobile()) goSnap("peek", { velocity: 0 });
+  else setPanelOpen(true);
+});
+
+// --- arraste da gaveta (Pointer Events, 1:1, velocidade e projeção) ---
+
+let drag = null;
+
+// Toque: alterna entre recolhida e meio. Aberta/meio -> recolhe.
+let lastToggle = 0;
+function toggleSheet() {
+  const now = performance.now();
+  if (now - lastToggle < 450) return;            // ignora toque duplicado / eco
+  lastToggle = now;
+  if (snap === "hidden") {
+    goSnap("peek", { velocity: 0 });
+  } else if (snap === "peek") {
+    goSnap("half", { velocity: 0 });
+  } else {
+    if (document.activeElement === searchEl) searchEl.blur();   // fecha o teclado
+    goSnap("peek", { velocity: 0 });
+  }
+}
+
+grab.addEventListener("pointerdown", (e) => {
+  if (!isMobile() || e.target.closest("[data-nodrag]")) return;
+  cancelAnimationFrame(spring.raf);              // pode agarrar no meio da animação
+  spring.active = false;
+  try { grab.setPointerCapture(e.pointerId); } catch (err) {}
+  drag = {
+    id: e.pointerId, startY: e.clientY, origY: e.clientY, t0: e.timeStamp,
+    startX: spring.x, moved: false, hist: [{ t: e.timeStamp, y: e.clientY }]
+  };
+});
+
+grab.addEventListener("pointermove", (e) => {
+  if (!drag || e.pointerId !== drag.id) return;
+  const dy = e.clientY - drag.startY;
+  if (!drag.moved) {
+    if (Math.abs(dy) < 10) return;               // histerese: tremor do dedo não conta
+    drag.moved = true;
+    drag.startY = e.clientY;
+    drag.hist = [];
+  }
+  drag.hist.push({ t: e.timeStamp, y: e.clientY });
+  if (drag.hist.length > 8) drag.hist.shift();
+
+  const S = snapPositions();
+  let pos = drag.startX + (e.clientY - drag.startY);
+  if (pos < S.full) pos = S.full - rubberband(S.full - pos, 140);
+  else if (pos > S.hidden) pos = S.hidden + rubberband(pos - S.hidden, 140);
+  spring.x = pos; spring.v = 0;
+  setPos(pos);
+});
+
+function endDrag(e) {
+  if (!drag || e.pointerId !== drag.id) return;
+  const d = drag; drag = null;
+
+  if (e.type === "pointercancel") { goSnap(snap); return; }
+
+  // Toque (mesmo com pequeno tremor): curto e quase sem deslocamento
+  const travel = Math.abs(e.clientY - d.origY);
+  const quick = (e.timeStamp - d.t0) < 400;
+  if (!d.moved || (travel < 16 && quick)) { toggleSheet(); return; }
+
+  // Velocidade só dos últimos ~120 ms; ruído pequeno vira zero
+  let v = 0;
+  if (d.hist.length >= 2) {
+    const last = d.hist[d.hist.length - 1];
+    let first = d.hist[0];
+    for (let i = 0; i < d.hist.length; i++) {
+      if (last.t - d.hist[i].t <= 120) { first = d.hist[i]; break; }
+    }
+    const dt = (last.t - first.t) / 1000;
+    if (dt >= 0.016) v = (last.y - first.y) / dt;
+  }
+  if (Math.abs(v) < 250) v = 0;
+  v = Math.max(-3000, Math.min(3000, v));
+
+  const projected = spring.x + project(v);
+
+  const S = snapPositions();
+  let best = "peek", bestD = Infinity;
+  Object.keys(S).forEach(name => {
+    const dist = Math.abs(S[name] - projected);
+    if (dist < bestD) { bestD = dist; best = name; }
+  });
+
+  goSnap(best, { velocity: v, damping: Math.abs(v) > 300 ? 0.82 : 1 });
+}
+
+grab.addEventListener("pointerup", endDrag);
+grab.addEventListener("pointercancel", endDrag);
+
+$("handle").addEventListener("keydown", (e) => {
+  if (e.key === "Enter" || e.key === " ") {
+    e.preventDefault();
+    toggleSheet();
+  }
+});
+
+window.addEventListener("resize", () => { if (!drag) applyLayoutNow(); });
+window.addEventListener("orientationchange", () => { if (!drag) applyLayoutNow(); });
+window.addEventListener("pageshow", () => { if (!drag) applyLayoutNow(); });
+if (window.visualViewport) {
+  visualViewport.addEventListener("resize", () => { if (!drag) applyLayoutNow(); });
+}
+
+// Se o toque terminar fora do painel (evento perdido), encerra o arraste
+window.addEventListener("pointerup", (e) => { if (drag) endDrag(e); });
+window.addEventListener("pointercancel", (e) => { if (drag) endDrag(e); });
+
+// Vigia: se a gaveta, parada, estiver em posição diferente da esperada, volta ao lugar certo
+function actualOffset() {
+  const m = new DOMMatrixReadOnly(getComputedStyle(panel).transform);
+  return isMobile() ? m.m42 : m.m41;
+}
+setInterval(() => {
+  if (drag || spring.active || picking) return;
+  try {
+    if (Math.abs(actualOffset() - targetPos()) > 40) applyLayoutNow();
+  } catch (e) { /* ignora */ }
+}, 500);
+
+function padOpts() {
+  if (isMobile()) {
+    return { paddingTopLeft: [24, 24], paddingBottomRight: [24, metrics().peekVis + 24] };
+  }
+  return { paddingTopLeft: [panelOpen ? 384 : 24, 24], paddingBottomRight: [72, 24] };
+}
+
+
+// ==========================================
+// AVISOS COM "DESFAZER"
+// ==========================================
+
+let toastEl = null, toastTimer = 0;
+
+function hideToast(t) {
+  t.classList.remove("in");
+  setTimeout(() => t.remove(), 300);
+  if (toastEl === t) toastEl = null;
+}
+
+function showToast(msg, undo) {
+  clearTimeout(toastTimer);
+  if (toastEl) toastEl.remove();
+  const t = document.createElement("div");
+  t.className = "toast";
+  t.setAttribute("role", "status");
+  const s = document.createElement("span");
+  s.textContent = msg;
+  t.appendChild(s);
+  if (undo) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = "Desfazer";
+    b.addEventListener("click", () => { undo(); hideToast(t); });
+    t.appendChild(b);
+  }
+  document.body.appendChild(t);
+  toastEl = t;
+  requestAnimationFrame(() => requestAnimationFrame(() => t.classList.add("in")));
+  toastTimer = setTimeout(() => hideToast(t), 6000);
+}
+
+// Toda alteração passa por aqui: salva, redesenha e oferece desfazer.
+function mutate(msg, fn, fit) {
+  const snapshot = JSON.stringify(cameras);
+  fn();
+  saveCameras();
+  refresh(!!fit);
+  showToast(msg, () => {
+    cameras = JSON.parse(snapshot);
+    saveCameras();
+    refresh(false);
+  });
+}
+
+
+// ==========================================
+// MARCADORES, LISTA E FILTROS
+// ==========================================
+
+const UF_TZ = {
+  AC: "America/Rio_Branco", AM: "America/Manaus", RO: "America/Porto_Velho",
+  RR: "America/Boa_Vista", MT: "America/Cuiaba", MS: "America/Campo_Grande"
+};
+
+function localTime(uf) {
+  try {
+    return new Intl.DateTimeFormat("pt-BR", {
+      hour: "2-digit", minute: "2-digit", timeZone: UF_TZ[uf] || "America/Sao_Paulo"
+    }).format(new Date());
+  } catch (e) { return ""; }
+}
+
+function popupHtml(item, i) {
+  return '<div class="pop-title">' + esc(item.city) + '</div>' +
+    '<div class="pop-sub">' + esc(UF_NAMES[item.uf] || item.uf) + '</div>' +
+    '<div class="pop-time">Horário local ' + localTime(item.uf) + '</div>' +
+    '<a class="pop-open" href="' + esc(item.url) + '" target="_blank" rel="noopener noreferrer">Abrir câmeras ao vivo ' + ICON_EXT + '</a>' +
+    '<div class="pop-acts">' +
+      '<button type="button" class="pop-act" data-act="edit" data-i="' + i + '">' + ICON_EDIT(16) + ' Editar</button>' +
+      '<button type="button" class="pop-act del" data-act="del" data-i="' + i + '">' + ICON_TRASH(16) + ' Excluir</button>' +
+    '</div>';
+}
+
+function setSelected(i) {
+  selectedIdx = i;
+  listEl.querySelectorAll(".row").forEach(r => {
+    const on = Number(r.dataset.i) === i;
+    r.classList.toggle("selected", on);
+    if (on) r.scrollIntoView({ block: "nearest", behavior: mqReduce.matches ? "auto" : "smooth" });
+  });
+}
+
+function buildMarkers() {
+  const mobile = isMobile();
+  const popupOpts = {
+    className: "glass-popup",
+    closeButton: false,
+    offset: [0, 0],
+    autoPanPaddingTopLeft: [mobile ? 20 : (panelOpen ? 372 : 20), 70],
+    autoPanPaddingBottomRight: [20, mobile ? metrics().peekVis + 20 : 20]
+  };
+
+  markers = cameras.map((item, i) => {
+    const m = L.marker([item.lat, item.lng], { icon: cameraIcon }).bindPopup(popupHtml(item, i), popupOpts);
+    if (canHover) m.bindTooltip(esc(item.city), { direction: "top", offset: [0, -34], className: "glass-tip" });
+    m.on("popupopen", (ev) => {
+      const pe = ev.popup.getElement();
+      const te = pe && pe.querySelector(".pop-time");
+      if (te) te.textContent = "Horário local " + localTime(item.uf);
+      setSelected(i);
+      const el = m.getElement();
+      if (el) el.classList.add("sel");
+    });
+    m.on("popupclose", () => {
+      const el = m.getElement();
+      if (el) el.classList.remove("sel");
+      if (selectedIdx === i) setSelected(-1);
+    });
+    return m;
+  });
+}
+
+function renderChips() {
+  const counts = {};
+  cameras.forEach(c => { counts[c.uf] = (counts[c.uf] || 0) + 1; });
+  if (currentUF !== "ALL" && !counts[currentUF]) currentUF = "ALL";
+  const all = [["ALL", "Todos", cameras.length]]
+    .concat(Object.keys(counts).sort().map(u => [u, u, counts[u]]));
+  chipsEl.innerHTML = all.map(([k, label, n]) =>
+    '<button type="button" class="chip' + (k === currentUF ? " active" : "") + '" data-uf="' + k + '" aria-pressed="' + (k === currentUF) + '">' +
+    label + '<small>' + n + '</small></button>').join("");
+}
+
+function visibleIndexes() {
+  const q = norm(searchEl.value.trim());
+  return cameras.map((c, i) => i)
+    .filter(i => (currentUF === "ALL" || cameras[i].uf === currentUF) && norm(cameras[i].city).includes(q))
+    .sort((a, b) => cameras[a].city.localeCompare(cameras[b].city, "pt-BR"));
+}
+
+function refresh(fit) {
+  selectedIdx = -1;
+  buildMarkers();
+  renderChips();
+  const idx = visibleIndexes();
+
+  clusters.clearLayers();
+  clusters.addLayers(idx.map(i => markers[i]));
+
+  countEl.textContent = (idx.length === 1 ? "1 câmera" : idx.length + " câmeras") +
+    (currentUF !== "ALL" ? " em " + currentUF : "");
+
+  const rows = idx.map(i =>
+    '<div class="row" data-i="' + i + '">' +
+      '<button type="button" class="item"><span class="uf">' + esc(cameras[i].uf) + '</span><span class="name">' + esc(cameras[i].city) + '</span></button>' +
+      '<div class="row-acts">' +
+        '<button type="button" class="icon-btn" data-act="edit" title="Editar" aria-label="Editar ' + esc(cameras[i].city) + '">' + ICON_EDIT() + '</button>' +
+        '<button type="button" class="icon-btn del" data-act="del" title="Excluir" aria-label="Excluir ' + esc(cameras[i].city) + '">' + ICON_TRASH() + '</button>' +
+      '</div>' +
+    '</div>').join("");
+
+  listEl.innerHTML = (rows || '<div class="empty"><p>Nenhuma câmera encontrada.</p><button type="button" class="btn" data-act="new">Adicionar câmera</button></div>');
+
+  if (fit && idx.length) {
+    map.fitBounds(
+      L.latLngBounds(idx.map(i => [cameras[i].lat, cameras[i].lng])),
+      Object.assign({ maxZoom: idx.length === 1 ? 11 : 8 }, padOpts())
+    );
+  }
+}
+
+function focusCamera(i) {
+  if (isMobile()) goSnap("peek");
+  const m = markers[i];
+  clusters.zoomToShowLayer(m, () => m.openPopup());
+}
+
+function removeCamera(i) {
+  const c = cameras[i];
+  map.closePopup();
+  mutate('"' + c.city + '" excluída', () => { cameras.splice(i, 1); });
+}
+
+const centerOf = (el) => {
+  const r = el.getBoundingClientRect();
+  return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+};
+
+chipsEl.addEventListener("click", (e) => {
+  const b = e.target.closest(".chip");
+  if (!b) return;
+  currentUF = b.dataset.uf;
+  refresh(true);
+});
+
+searchEl.addEventListener("input", () => refresh(true));
+searchEl.addEventListener("focus", () => { if (isMobile() && snap === "peek") goSnap("half"); });
+searchEl.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && searchEl.value) { searchEl.value = ""; refresh(true); }
+});
+
+listEl.addEventListener("click", (e) => {
+  const act = e.target.closest("[data-act]");
+  if (act) {
+    const row = act.closest(".row");
+    const i = row ? Number(row.dataset.i) : -1;
+    switch (act.dataset.act) {
+      case "edit": return openForm(i, null, centerOf(act));
+      case "del": return removeCamera(i);
+      case "new": return openForm(null, { city: searchEl.value.trim() }, centerOf(act));
+    }
+  }
+  const b = e.target.closest(".item");
+  if (b) focusCamera(Number(b.closest(".row").dataset.i));
+});
+
+// Passar o mouse na lista destaca o ponto no mapa
+let hoverEl = null;
+function clearHover() { if (hoverEl) { hoverEl.classList.remove("hl"); hoverEl = null; } }
+listEl.addEventListener("mouseover", (e) => {
+  const row = e.target.closest(".row");
+  clearHover();
+  if (!row) return;
+  const m = markers[Number(row.dataset.i)];
+  const el = m && m.getElement();
+  if (el) { el.classList.add("hl"); hoverEl = el; }
+});
+listEl.addEventListener("mouseleave", clearHover);
+
+// Botões dentro do balão do marcador
+$("map").addEventListener("click", (e) => {
+  const b = e.target.closest(".pop-act");
+  if (!b) return;
+  const i = Number(b.dataset.i);
+  const origin = centerOf(b);
+  map.closePopup();
+  if (b.dataset.act === "edit") openForm(i, null, origin);
+  else removeCamera(i);
+});
+
+
+// ==========================================
+// FORMULÁRIO: ADICIONAR / EDITAR
+// ==========================================
+
+const dlg = $("dlg"), fUF = $("fUF"), fCity = $("fCity"), fUrl = $("fUrl"), fLat = $("fLat"), fLng = $("fLng"), fMsg = $("fMsg");
+const pickBanner = $("pickBanner");
+
+fUF.innerHTML = ALL_UFS.map(u => "<option>" + u + "</option>").join("");
+
+let editingIndex = null;
+let picking = false;
+
+function openDlg(origin) {
+  dlg.classList.remove("closing");
+  if (!dlg.open) dlg.showModal();
+  if (origin) {
+    const r = dlg.getBoundingClientRect();
+    dlg.style.transformOrigin = (origin.x - r.left) + "px " + (origin.y - r.top) + "px";
+  }
+}
+
+function closeDlg() {
+  if (!dlg.open || dlg.classList.contains("closing")) return;
+  dlg.classList.add("closing");
+  setTimeout(() => { dlg.classList.remove("closing"); dlg.close(); }, mqReduce.matches ? 120 : 160);
+}
+
+function clearInvalid() {
+  [fCity, fUrl, fLat, fLng].forEach(el => el.removeAttribute("aria-invalid"));
+  fMsg.textContent = "";
+}
+
+[fCity, fUrl, fLat, fLng].forEach(el => el.addEventListener("input", () => {
+  el.removeAttribute("aria-invalid");
+  fMsg.textContent = "";
+}));
+
+function openForm(i, prefill, origin) {
+  editingIndex = (typeof i === "number" && i >= 0) ? i : null;
+  const c = editingIndex === null ? (prefill || null) : cameras[editingIndex];
+  $("dlgTitle").textContent = editingIndex === null ? "Adicionar câmera" : "Editar câmera";
+  fUF.value = (c && c.uf) || (currentUF !== "ALL" ? currentUF : "PR");
+  fCity.value = (c && c.city) || "";
+  fUrl.value = (c && c.url) || "";
+  fLat.value = (c && c.lat != null) ? c.lat : "";
+  fLng.value = (c && c.lng != null) ? c.lng : "";
+  clearInvalid();
+  if (isMobile()) goSnap("peek");
+  openDlg(origin || centerOf($("addBtn")));
+  if (editingIndex === null) fCity.focus();
+}
+
+$("addBtn").addEventListener("click", (e) => openForm(null, { city: searchEl.value.trim() }, centerOf(e.currentTarget)));
+$("fCancel").addEventListener("click", closeDlg);
+dlg.addEventListener("cancel", (e) => { e.preventDefault(); closeDlg(); });
+dlg.addEventListener("click", (e) => { if (e.target === dlg) closeDlg(); });
+
+$("geoBtn").addEventListener("click", async (e) => {
+  const q = fCity.value.trim();
+  if (!q) { fCity.setAttribute("aria-invalid", "true"); fMsg.textContent = "Digite o nome da cidade primeiro."; return; }
+  const btn = e.currentTarget;
+  btn.disabled = true;
+  fMsg.style.color = "var(--muted)";
+  fMsg.textContent = "Buscando…";
+  try {
+    const url = "https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=br&q=" +
+      encodeURIComponent(q + ", " + fUF.value + ", Brasil");
+    const res = await fetch(url, { headers: { "Accept": "application/json" } });
+    const data = await res.json();
+    if (!data.length) { fMsg.style.color = ""; fMsg.textContent = "Não encontrei. Use “Escolher no mapa”."; return; }
+    fLat.value = Number(data[0].lat).toFixed(4);
+    fLng.value = Number(data[0].lon).toFixed(4);
+    fMsg.textContent = "";
+  } catch (err) {
+    fMsg.style.color = "";
+    fMsg.textContent = "Falha na busca. Use “Escolher no mapa”.";
+  } finally {
+    btn.disabled = false;
+    setTimeout(() => { fMsg.style.color = ""; }, 0);
+  }
+});
+
+$("pickBtn").addEventListener("click", () => {
+  picking = true;
+  document.body.classList.add("picking");
+  pickBanner.classList.add("on");
+  dlg.close();
+});
+
+function stopPicking() {
+  picking = false;
+  document.body.classList.remove("picking");
+  pickBanner.classList.remove("on");
+}
+
+map.on("click", (e) => {
+  if (!picking) return;
+  fLat.value = e.latlng.lat.toFixed(4);
+  fLng.value = e.latlng.lng.toFixed(4);
+  fLat.removeAttribute("aria-invalid"); fLng.removeAttribute("aria-invalid");
+  stopPicking();
+  openDlg();
+});
+
+$("pickCancel").addEventListener("click", () => { stopPicking(); openDlg(); });
+
+
+$("form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  clearInvalid();
+  const city = fCity.value.trim();
+  let url = fUrl.value.trim();
+  const lat = parseFloat(fLat.value.replace(",", "."));
+  const lng = parseFloat(fLng.value.replace(",", "."));
+
+  if (!city) { fCity.setAttribute("aria-invalid", "true"); fMsg.textContent = "Informe a cidade ou o nome."; fCity.focus(); return; }
+  if (!url) { fUrl.setAttribute("aria-invalid", "true"); fMsg.textContent = "Informe o link da câmera."; fUrl.focus(); return; }
+  if (!/^https?:\/\//i.test(url)) url = "https://" + url;
+  if (!isFinite(lat) || lat < -90 || lat > 90) { fLat.setAttribute("aria-invalid", "true"); fMsg.textContent = "Latitude inválida. Use a busca ou escolha no mapa."; return; }
+  if (!isFinite(lng) || lng < -180 || lng > 180) { fLng.setAttribute("aria-invalid", "true"); fMsg.textContent = "Longitude inválida. Use a busca ou escolha no mapa."; return; }
+
+  const item = { city, uf: fUF.value, lat, lng, url };
+  const wasNew = editingIndex === null;
+  let idx;
+  mutate(wasNew ? "Câmera adicionada" : "Alterações salvas", () => {
+    if (wasNew) { cameras.push(item); idx = cameras.length - 1; }
+    else { cameras[editingIndex] = item; idx = editingIndex; }
+    currentUF = "ALL";
+    searchEl.value = "";
+  });
+  closeDlg();
+  const m = markers[idx];
+  clusters.zoomToShowLayer(m, () => m.openPopup());
+});
+
+
+// ==========================================
+// INICIALIZAÇÃO
+// ==========================================
+
+map.on("tileerror", function () {
+  console.warn("Erro ao carregar os mapas CARTO. Verifique a chave API.");
+});
+
+// ==========================================
+// RELÓGIO
+// ==========================================
+
+const clockTime = $("clockTime"), clockDate = $("clockDate");
+const fmtTime = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+const fmtDate = new Intl.DateTimeFormat("pt-BR", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+
+function tickClock() {
+  const d = new Date();
+  clockTime.textContent = fmtTime.format(d);
+  clockDate.textContent = fmtDate.format(d);
+}
+tickClock();
+setInterval(tickClock, 1000);
+try { $("hud").title = "Fuso horário: " + Intl.DateTimeFormat().resolvedOptions().timeZone; } catch (e) {}
+
+
+// ==========================================
+// TEMA CLARO / ESCURO
+// ==========================================
+
+const THEME_KEY = "mapa-tema";
+const themeBtn = $("themeBtn");
+const ICON_SUN = svg('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>', 20);
+const ICON_MOON = svg('<path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/>', 20);
+
+const currentTheme = () => document.documentElement.dataset.theme === "dark" ? "dark" : "light";
+
+function paintTheme() {
+  const dark = currentTheme() === "dark";
+  themeBtn.innerHTML = dark ? ICON_SUN : ICON_MOON;
+  const label = dark ? "Mudar para o tema claro" : "Mudar para o tema escuro";
+  themeBtn.title = label;
+  themeBtn.setAttribute("aria-label", label);
+  document.querySelector('meta[name="theme-color"]').content = dark ? "#0e1a24" : "#102b3f";
+}
+
+function setTheme(theme, save) {
+  if (theme === currentTheme()) return;
+  document.documentElement.dataset.theme = theme;
+  if (save) { try { localStorage.setItem(THEME_KEY, theme); } catch (e) {} }
+  paintTheme();
+
+  if (mqReduce.matches) { tiles.setUrl(tileUrl(theme)); return; }
+
+  // troca de mapa com fade, para não haver salto de brilho
+  const pane = map.getPane("tilePane");
+  pane.style.transition = "opacity .2s";
+  pane.style.opacity = "0";
+  setTimeout(() => {
+    const show = () => { pane.style.opacity = "1"; };
+    tiles.once("load", show);
+    tiles.setUrl(tileUrl(theme));
+    setTimeout(show, 1500);
+  }, 200);
+}
+
+themeBtn.addEventListener("click", () => setTheme(currentTheme() === "dark" ? "light" : "dark", true));
+
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", (e) => {
+  let saved = null;
+  try { saved = localStorage.getItem(THEME_KEY); } catch (err) {}
+  if (!saved) setTheme(e.matches ? "dark" : "light", false);
+});
+
+paintTheme();
+
+
+// ==========================================
+// EXPORTAR E RESTAURAR (arquivo .json)
+// ==========================================
+
+$("exportBtn").addEventListener("click", () => {
+  const payload = { app: "mapa-cameras", versao: 1, exportadoEm: new Date().toISOString(), cameras: cameras };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, "0");
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "cameras-" + d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) + ".json";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  showToast(cameras.length + " câmeras exportadas");
+});
+
+$("importBtn").addEventListener("click", () => $("importFile").click());
+
+$("importFile").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  e.target.value = "";
+  if (!file) return;
+  try {
+    const data = JSON.parse(await file.text());
+    const arr = Array.isArray(data) ? data : data.cameras;
+    if (!Array.isArray(arr)) throw new Error("formato");
+
+    const num = (v) => (v === null || v === undefined || v === "") ? NaN : Number(v);
+    const ok = arr.map(c => ({
+      city: String((c && c.city) || "").trim(),
+      uf: String((c && c.uf) || "").toUpperCase(),
+      lat: num(c && c.lat),
+      lng: num(c && c.lng),
+      url: String((c && c.url) || "").trim()
+    })).filter(c =>
+      c.city && /^https?:\/\//i.test(c.url) && ALL_UFS.indexOf(c.uf) !== -1 &&
+      isFinite(c.lat) && isFinite(c.lng) && Math.abs(c.lat) <= 90 && Math.abs(c.lng) <= 180);
+
+    if (!ok.length) throw new Error("vazio");
+
+    map.closePopup();
+    currentUF = "ALL";
+    searchEl.value = "";
+    const ignored = arr.length - ok.length;
+    mutate(ok.length + " câmeras restauradas" + (ignored ? " (" + ignored + " ignoradas)" : ""), () => { cameras = ok; }, true);
+  } catch (err) {
+    showToast("Arquivo inválido. Escolha um .json exportado por este mapa.");
+  }
+});
+
+
+applyLayoutNow();
+map.setView([-15, -52], 4);
+refresh(true);
+
+// ==========================================
+// LISTA ONLINE (cameras.json no GitHub)
+// ==========================================
+// Ao abrir, o mapa busca a lista publicada no GitHub. Se ela mudou desde a última
+// vez, substitui a lista salva no aparelho. Se não mudou, mantém as edições locais.
+
+const REMOTE_CAMERAS_URL = "https://igordevpvai-cpu.github.io/mapa-cameras-br/cameras.json";
+const REMOTE_HASH_KEY = "mapa-cameras-remote-hash";
+
+function cleanCameras(arr) {
+  const num = (v) => (v === null || v === undefined || v === "") ? NaN : Number(v);
+  return arr.map(c => ({
+    city: String((c && c.city) || "").trim(),
+    uf: String((c && c.uf) || "").toUpperCase(),
+    lat: num(c && c.lat),
+    lng: num(c && c.lng),
+    url: String((c && c.url) || "").trim()
+  })).filter(c =>
+    c.city && /^https?:\/\//i.test(c.url) && ALL_UFS.indexOf(c.uf) !== -1 &&
+    isFinite(c.lat) && isFinite(c.lng) && Math.abs(c.lat) <= 90 && Math.abs(c.lng) <= 180);
+}
+
+function hashStr(str) {
+  let h = 5381;
+  for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0;
+  return String(h);
+}
+
+async function syncRemoteCameras() {
+  try {
+    const ctrl = new AbortController();
+    const to = setTimeout(() => ctrl.abort(), 8000);
+    const res = await fetch(REMOTE_CAMERAS_URL + "?t=" + Date.now(), { cache: "no-store", signal: ctrl.signal });
+    clearTimeout(to);
+    if (!res.ok) return;
+    const data = await res.json();
+    const arr = Array.isArray(data) ? data : data.cameras;
+    if (!Array.isArray(arr)) return;
+    const ok = cleanCameras(arr);
+    if (!ok.length) return;
+
+    const h = hashStr(JSON.stringify(ok));
+    let last = null;
+    try { last = localStorage.getItem(REMOTE_HASH_KEY); } catch (e) {}
+    if (h === last) return;               // lista online não mudou: mantém o que está no aparelho
+
+    cameras = ok;
+    saveCameras();
+    try { localStorage.setItem(REMOTE_HASH_KEY, h); } catch (e) {}
+    map.closePopup();
+    refresh(false);
+    showToast("Lista atualizada: " + ok.length + " câmeras");
+  } catch (e) { /* sem internet ou arquivo ausente: segue com a lista local */ }
+}
+
+syncRemoteCameras();
+
+console.log("Mapa de câmeras inicializado. Total de cidades:", cameras.length);
+
+</script>
+
+</body>
+</html>
